@@ -1,0 +1,42 @@
+[
+  {
+    "image": "point_and_ask_images/case_01_scam_bank.png",
+    "expected_classification": "scam"
+  },
+  {
+    "image": "point_and_ask_images/case_02_scam_prize.png",
+    "expected_classification": "scam"
+  },
+  {
+    "image": "point_and_ask_images/case_03_scam_tax.png",
+    "expected_classification": "scam"
+  },
+  {
+    "image": "point_and_ask_images/case_04_legit_checkin.png",
+    "expected_classification": "explain"
+  },
+  {
+    "image": "point_and_ask_images/case_05_legit_passport.png",
+    "expected_classification": "explain"
+  },
+  {
+    "image": "point_and_ask_images/case_07_scam_parcel.png",
+    "expected_classification": "scam"
+  },
+  {
+    "image": "point_and_ask_images/case_08_legit_medical.png",
+    "expected_classification": "explain"
+  },
+  {
+    "image": "point_and_ask_images/case_09_scam_grandchild.png",
+    "expected_classification": "scam"
+  },
+  {
+    "image": "point_and_ask_images/case_10_legit_community.png",
+    "expected_classification": "explain"
+  },
+  {
+    "image": "point_and_ask_images/case_06_unreadable.png",
+    "expected_classification": "unclear"
+  }
+]

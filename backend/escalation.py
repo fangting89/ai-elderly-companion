@@ -5,9 +5,9 @@ something might warrant a family alert. It owns the rule evaluation (the
 Escalation Rules table in BUILD_PLAN.md) so callers just report what
 happened; whether that rises to an alert is decided here.
 
-Built incrementally: only the chat sentiment rules exist so far (Phase 1).
-Scam, missed-medication, and repeated-question rules are added in their own
-phases without changing this function's call sites.
+Built incrementally: chat-sentiment (Phase 1) and scam-detection (Phase 2)
+rules exist so far. Missed-medication and repeated-question-frequency rules
+are added in their own phases without changing this function's call sites.
 """
 
 import uuid
@@ -29,6 +29,16 @@ def check_and_alert(elder_id: str, trigger_type: TriggerType, context: dict[str,
     """
     if trigger_type == "chat_sentiment":
         _handle_chat_sentiment(elder_id, context)
+    elif trigger_type == "scam_detected":
+        _handle_scam_detected(elder_id, context)
+
+
+def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
+    risk_level = context.get("risk_level", "medium")
+    summary = context.get("summary", "")
+    _write_alert(
+        elder_id, "scam_detected", f"A {risk_level}-risk scam attempt was detected: {summary}"
+    )
 
 
 def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:
