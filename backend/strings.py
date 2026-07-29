@@ -45,6 +45,8 @@ StringKey = Literal[
     "calendar_notes_label",
     "calendar_no_events_message",
     "add_button",
+    "chat_share_memory_button",
+    "chat_no_memories_message",
 ]
 
 _STRINGS: dict[str, dict[StringKey, str]] = {
@@ -84,6 +86,8 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "calendar_notes_label": "Notes (optional)",
         "calendar_no_events_message": "No upcoming events yet.",
         "add_button": "Add",
+        "chat_share_memory_button": "Share a memory",
+        "chat_no_memories_message": "No memories have been added yet. Ask your family to add some!",
     },
     "Mandarin Chinese": {
         "scam_warning_title": "这看起来可能是一个骗局。",
@@ -117,6 +121,8 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "calendar_notes_label": "备注（可选）",
         "calendar_no_events_message": "暂无即将到来的日程。",
         "add_button": "添加",
+        "chat_share_memory_button": "分享一段回忆",
+        "chat_no_memories_message": "还没有添加任何回忆。请让家人帮忙添加吧！",
     },
     "Malay": {
         "scam_warning_title": "Ini kelihatan seperti penipuan.",
@@ -156,6 +162,10 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "calendar_notes_label": "Nota (pilihan)",
         "calendar_no_events_message": "Belum ada acara akan datang.",
         "add_button": "Tambah",
+        "chat_share_memory_button": "Kongsi kenangan",
+        "chat_no_memories_message": (
+            "Belum ada kenangan ditambah. Minta ahli keluarga anda menambahnya!"
+        ),
     },
     "Tamil": {
         "scam_warning_title": "இது ஒரு மோசடி போல் தெரிகிறது.",
@@ -196,6 +206,10 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "calendar_notes_label": "குறிப்புகள் (விருப்பத்தேர்வு)",
         "calendar_no_events_message": "இன்னும் வரவிருக்கும் நிகழ்வுகள் இல்லை.",
         "add_button": "சேர்க்கவும்",
+        "chat_share_memory_button": "ஒரு நினைவைப் பகிரவும்",
+        "chat_no_memories_message": (
+            "இன்னும் நினைவுகள் எதுவும் சேர்க்கப்படவில்லை. உங்கள் குடும்பத்தினரிடம் சேர்க்கச் சொல்லுங்கள்!"
+        ),
     },
 }
 

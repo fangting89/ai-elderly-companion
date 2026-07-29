@@ -12,6 +12,7 @@ from backend.calendar import add_event
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
 from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
+from backend.memory_bank import generate_reminiscence_prompt, get_context_facts
 from backend.strings import get_string
 
 # Stored in place of the daily check-in's literal text so it always renders
@@ -99,16 +100,23 @@ TAG_SCHEMA = {
 }
 
 
-def build_system_prompt(target_language: str) -> str:
+def build_system_prompt(target_language: str, memory_facts: list[str] | None = None) -> str:
     language_clause = (
         ""
         if target_language == "English"
         else f" Always reply in {target_language}, never in English."
     )
+    memory_clause = ""
+    if memory_facts:
+        facts_text = "; ".join(memory_facts)
+        memory_clause = (
+            " Known facts about this person from their family (reference naturally "
+            f"when relevant, never invent anything beyond this): {facts_text}."
+        )
     return (
         "You are a warm, patient AI companion for an elderly person."
-        f"{language_clause} Keep replies short, kind, and simple. Never give "
-        "medical, legal, or financial advice; suggest they check with family "
+        f"{language_clause}{memory_clause} Keep replies short, kind, and simple. Never "
+        "give medical, legal, or financial advice; suggest they check with family "
         "or a professional instead. If they mention a letter, message, or "
         "anything that might be a scam, gently suggest they use the Point & "
         "Ask feature or ask a family member before acting on it."
@@ -236,9 +244,29 @@ def send_message(elder_id: str, user_text: str) -> str:
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
     _maybe_add_calendar_event(elder_id, tags)
 
-    reply = call_prose(model=CHAT_MODEL, system=build_system_prompt(target_language), messages=turn)
+    memory_facts = get_context_facts(elder_id)
+    system = build_system_prompt(target_language, memory_facts)
+    reply = call_prose(model=CHAT_MODEL, system=system, messages=turn)
     _insert_message(elder_id, "ai", reply)
     return reply
+
+
+def add_reminiscence_message(elder_id: str, target_language: str) -> str | None:
+    """Insert a reminiscence-based conversation opener as a new AI message.
+
+    Args:
+        elder_id: the elder profile to generate an opener for.
+        target_language: language to write the opener in.
+
+    Returns:
+        str | None: the opener text that was inserted, or None if no
+            memories are stored yet (nothing is inserted in that case).
+    """
+    opener = generate_reminiscence_prompt(elder_id, target_language)
+    if opener is None:
+        return None
+    _insert_message(elder_id, "ai", opener)
+    return opener
 
 
 def maybe_send_daily_checkin(elder_id: str) -> None:
