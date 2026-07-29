@@ -42,8 +42,11 @@ def inject_global_css() -> None:
     .app-card h3 {{ margin-top: 0; }}
     .app-card p {{ margin-bottom: 0; }}
 
-    /* hide default Streamlit chrome for a more product-like feel */
-    #MainMenu, footer, header [data-testid="stToolbar"] {{ visibility: hidden; }}
+    /* Hide the "Made with Streamlit" footer and the old hamburger menu for a
+       more product-like feel. Deliberately NOT touching the header/toolbar
+       area beyond this -- it also hosts the sidebar re-expand control, and
+       hiding it left users unable to bring a collapsed sidebar back. */
+    #MainMenu, footer {{ visibility: hidden; }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
