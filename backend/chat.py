@@ -242,6 +242,8 @@ def send_message(elder_id: str, user_text: str) -> str:
         elder_id, "elder", user_text, sentiment=sentiment, repeated_question_flag=repeated
     )
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
+    if repeated:
+        check_and_alert(elder_id, "repeated_question", {})
     _maybe_add_calendar_event(elder_id, tags)
 
     memory_facts = get_context_facts(elder_id)
