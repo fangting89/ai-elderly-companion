@@ -1,23 +1,22 @@
-"""Chat companion: prose replies plus sentiment/repetition tagging."""
+"""Chat companion: prose replies plus sentiment/repetition tagging.
+
+Replies are generated directly in the elder's preferred language (not
+translated after the fact) -- an elder who doesn't read English should
+never see an English draft first.
+"""
 
 import uuid
 
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
-from backend.db import get_connection
+from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
-
-SYSTEM_PROMPT = (
-    "You are a warm, patient AI companion for an elderly person. Keep replies "
-    "short, kind, and simple. Never give medical, legal, or financial advice; "
-    "suggest they check with family or a professional instead. If they mention "
-    "a letter, message, or anything that might be a scam, gently suggest they "
-    "use the Point & Ask feature or ask a family member before acting on it."
-)
+from backend.strings import get_string
 
 TAG_SYSTEM_PROMPT = (
     "You classify the emotional tone of an elderly person's chat message and "
     "whether it repeats a question they've already asked in this conversation. "
-    "Never invent facts about them; judge only from the text given."
+    "Never invent facts about them; judge only from the text given. The "
+    "message may be in any language -- classify it regardless."
 )
 
 TAG_SCHEMA = {
@@ -37,6 +36,22 @@ TAG_SCHEMA = {
     },
     "required": ["sentiment", "repeated_question_flag"],
 }
+
+
+def _system_prompt(target_language: str) -> str:
+    language_clause = (
+        ""
+        if target_language == "English"
+        else f" Always reply in {target_language}, never in English."
+    )
+    return (
+        "You are a warm, patient AI companion for an elderly person."
+        f"{language_clause} Keep replies short, kind, and simple. Never give "
+        "medical, legal, or financial advice; suggest they check with family "
+        "or a professional instead. If they mention a letter, message, or "
+        "anything that might be a scam, gently suggest they use the Point & "
+        "Ask feature or ask a family member before acting on it."
+    )
 
 
 def _recent_messages(elder_id: str, limit: int = 20) -> list[dict[str, str]]:
@@ -100,8 +115,11 @@ def send_message(elder_id: str, user_text: str) -> str:
         user_text: the elder's message text.
 
     Returns:
-        str: the companion's prose reply.
+        str: the companion's prose reply, in the elder's preferred language.
     """
+    profile = get_profile(elder_id)
+    target_language = profile.preferred_language if profile else "English"
+
     history = _recent_messages(elder_id)
     turn = [*history, {"role": "user", "content": user_text}]
 
@@ -121,7 +139,7 @@ def send_message(elder_id: str, user_text: str) -> str:
     )
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
 
-    reply = call_prose(model=CHAT_MODEL, system=SYSTEM_PROMPT, messages=turn)
+    reply = call_prose(model=CHAT_MODEL, system=_system_prompt(target_language), messages=turn)
     _insert_message(elder_id, "ai", reply)
     return reply
 
@@ -143,6 +161,6 @@ def maybe_send_daily_checkin(elder_id: str) -> None:
     )
     if row is not None:
         return
-    _insert_message(
-        elder_id, "ai", "Good morning! How are you feeling today? Did you take your medication?"
-    )
+    profile = get_profile(elder_id)
+    target_language = profile.preferred_language if profile else "English"
+    _insert_message(elder_id, "ai", get_string(target_language, "daily_checkin"))

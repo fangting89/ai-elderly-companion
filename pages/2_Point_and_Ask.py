@@ -3,6 +3,7 @@
 import streamlit as st
 
 from backend import point_and_ask
+from backend.strings import get_string
 from ui import render_card
 
 st.title("Point & Ask")
@@ -12,26 +13,17 @@ uploaded = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"
 
 if uploaded is not None:
     st.image(uploaded, width=300)
-    elder_id = st.session_state["profile"].id
+    profile = st.session_state["profile"]
 
     with st.spinner("Looking at this..."):
-        result = point_and_ask.process_photo(elder_id, uploaded.getvalue())
+        result = point_and_ask.process_photo(profile.id, uploaded.getvalue())
 
     if result.classification == "scam":
-        st.error(f"This looks like it could be a scam (risk: {result.risk_level}).")
-        st.write(result.content_summary)
-        st.write(
-            "Please don't reply, click any links, or send money or personal details. "
-            "Ask a family member before doing anything else about this."
-        )
+        st.error(get_string(profile.preferred_language, "scam_warning_title"))
+        st.write(get_string(profile.preferred_language, "scam_warning_body"))
     elif result.classification == "unclear":
-        st.warning(
-            "The photo isn't clear enough to read. Please try taking another "
-            "photo with better lighting."
-        )
+        st.warning(get_string(profile.preferred_language, "blurry_photo_message"))
     else:
         render_card(
             "Here's what this says", result.explanation or result.content_summary, icon="📄"
         )
-        if result.translation:
-            render_card("In Mandarin Chinese", result.translation, icon="🌐")

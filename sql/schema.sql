@@ -6,6 +6,8 @@ create table if not exists profiles (
   role text not null check (role in ('elder', 'family')),
   display_name text not null,
   elder_id text references profiles(id),
+  preferred_language text not null default 'English'
+    check (preferred_language in ('English', 'Mandarin Chinese', 'Malay', 'Tamil')),
   created_at text default (datetime('now'))
 );
 

@@ -18,7 +18,7 @@ from typing import Literal
 from PIL import Image
 
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
-from backend.db import get_connection
+from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
 
 Classification = Literal["explain", "scam", "unclear"]
@@ -26,7 +26,6 @@ RiskLevel = Literal["low", "medium", "high"]
 
 MAX_IMAGE_DIMENSION = 1568  # Anthropic's recommended max edge for vision cost/quality balance
 UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"
-DEFAULT_TARGET_LANGUAGE = "Mandarin Chinese"
 
 CLASSIFY_SYSTEM_PROMPT = (
     "You analyze a photo of a letter, message, or document sent to an elderly "
@@ -93,11 +92,13 @@ class ClassifyResult:
 
 @dataclass
 class PointAndAskResult:
+    """explanation is generated directly in the elder's preferred language --
+    never an English draft they'd need to read first."""
+
     classification: Classification
     risk_level: RiskLevel
     content_summary: str
     explanation: str | None
-    translation: str | None
 
 
 def _resize_if_needed(image_bytes: bytes) -> tuple[bytes, str]:
@@ -205,36 +206,25 @@ def classify_image(image_bytes: bytes, media_type: str) -> ClassifyResult:
     return ClassifyResult(**tags)
 
 
-def _parse_explanation(text: str) -> tuple[str, str]:
-    """Split a SUMMARY:/TRANSLATION:-formatted response into its two parts."""
-    before, _, translation = text.partition("TRANSLATION:")
-    summary = before.replace("SUMMARY:", "").strip()
-    return summary, translation.strip()
-
-
-def explain_image(
-    image_bytes: bytes, media_type: str, target_language: str = DEFAULT_TARGET_LANGUAGE
-) -> tuple[str, str]:
-    """Generate a plain-language explanation of a document photo, plus a translation.
+def explain_image(image_bytes: bytes, media_type: str, target_language: str) -> str:
+    """Generate a plain-language explanation of a document photo, in the given language.
 
     Args:
         image_bytes: raw (already resized) image bytes.
         media_type: MIME type of the image.
-        target_language: language to translate the explanation into.
+        target_language: language to write the explanation in (this is the
+            only version generated -- no separate English draft).
 
     Returns:
-        tuple[str, str]: (plain-language explanation, translated explanation).
+        str: the explanation, written directly in target_language.
     """
+    language_clause = "" if target_language == "English" else f" Write it in {target_language}."
     system = (
         "You explain a document photo to an elderly person in simple, plain "
-        "language, then provide the same explanation translated into "
-        f"{target_language}. Never give legal or financial advice; suggest "
-        "they involve family for anything involving money or deadlines. "
-        "Respond in exactly this format:\n\n"
-        "SUMMARY:\n<plain-language explanation in English>\n\n"
-        f"TRANSLATION:\n<the same explanation translated into {target_language}>"
+        f"language.{language_clause} Never give legal or financial advice; "
+        "suggest they involve family for anything involving money or deadlines."
     )
-    reply = call_prose(
+    return call_prose(
         model=CHAT_MODEL,
         system=system,
         messages=[
@@ -247,7 +237,6 @@ def explain_image(
             }
         ],
     )
-    return _parse_explanation(reply)
 
 
 def _save_upload(image_bytes: bytes, media_type: str) -> str:
@@ -264,7 +253,7 @@ def _persist(
     classification: Classification,
     risk_level: RiskLevel,
     result: ClassifyResult,
-    translated_text: str | None,
+    explanation: str | None,
 ) -> None:
     conn = get_connection()
     conn.execute(
@@ -277,7 +266,7 @@ def _persist(
             image_path,
             classification,
             result.content_summary,
-            translated_text,
+            explanation,
             risk_level if classification == "scam" else None,
             json.dumps(
                 {
@@ -302,18 +291,21 @@ def process_photo(elder_id: str, raw_image_bytes: bytes) -> PointAndAskResult:
     Returns:
         PointAndAskResult: the branch, risk, and content to show in the UI.
     """
+    profile = get_profile(elder_id)
+    target_language = profile.preferred_language if profile else "English"
+
     image_bytes, media_type = _resize_if_needed(raw_image_bytes)
 
     result = classify_image(image_bytes, media_type)
     risk_level = score_risk(result)
     classification = decide_branch(result, risk_level)
 
-    explanation, translation = None, None
+    explanation = None
     if classification == "explain":
-        explanation, translation = explain_image(image_bytes, media_type)
+        explanation = explain_image(image_bytes, media_type, target_language)
 
     image_path = _save_upload(image_bytes, media_type)
-    _persist(elder_id, image_path, classification, risk_level, result, translation)
+    _persist(elder_id, image_path, classification, risk_level, result, explanation)
 
     if classification == "scam":
         check_and_alert(
@@ -327,5 +319,4 @@ def process_photo(elder_id: str, raw_image_bytes: bytes) -> PointAndAskResult:
         risk_level=risk_level,
         content_summary=result.content_summary,
         explanation=explanation,
-        translation=translation,
     )
