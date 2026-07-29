@@ -2,7 +2,14 @@
 
 import streamlit as st
 
+from backend.strings import get_string
 from ui import render_card
 
-st.title("Medication")
-render_card("Coming soon", "Today's medication list and reminders.", icon="💊")
+lang = st.session_state["profile"].preferred_language
+
+st.title(get_string(lang, "nav_medication"))
+render_card(
+    get_string(lang, "coming_soon_title"),
+    get_string(lang, "medication_coming_soon_body"),
+    icon="💊",
+)

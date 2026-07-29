@@ -12,6 +12,11 @@ from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
 from backend.strings import get_string
 
+# Stored in place of the daily check-in's literal text so it always renders
+# in the elder's *current* preferred_language, not whatever language was
+# active on the day it was inserted.
+_DAILY_CHECKIN_SENTINEL = "__daily_checkin__"
+
 TAG_SYSTEM_PROMPT = (
     "You classify the emotional tone of an elderly person's chat message and "
     "whether it repeats a question they've already asked in this conversation. "
@@ -38,7 +43,7 @@ TAG_SCHEMA = {
 }
 
 
-def _system_prompt(target_language: str) -> str:
+def build_system_prompt(target_language: str) -> str:
     language_clause = (
         ""
         if target_language == "English"
@@ -54,7 +59,19 @@ def _system_prompt(target_language: str) -> str:
     )
 
 
-def _recent_messages(elder_id: str, limit: int = 20) -> list[dict[str, str]]:
+def _render_content(content: str, language: str) -> str:
+    """Resolve stored message content for display/LLM context.
+
+    The daily check-in is stored as a sentinel, not literal text, so it
+    always reflects the elder's *current* preferred_language rather than
+    whichever language was active on the day it was inserted.
+    """
+    if content == _DAILY_CHECKIN_SENTINEL:
+        return get_string(language, "daily_checkin")
+    return content
+
+
+def _recent_messages(elder_id: str, language: str, limit: int = 20) -> list[dict[str, str]]:
     rows = (
         get_connection()
         .execute(
@@ -65,7 +82,10 @@ def _recent_messages(elder_id: str, limit: int = 20) -> list[dict[str, str]]:
         .fetchall()
     )
     return [
-        {"role": "user" if row["sender"] == "elder" else "assistant", "content": row["content"]}
+        {
+            "role": "user" if row["sender"] == "elder" else "assistant",
+            "content": _render_content(row["content"], language),
+        }
         for row in reversed(rows)
     ]
 
@@ -87,11 +107,13 @@ def _insert_message(
     conn.commit()
 
 
-def get_history(elder_id: str) -> list[dict[str, str]]:
+def get_history(elder_id: str, language: str) -> list[dict[str, str]]:
     """Return the full chat history for display, oldest first.
 
     Args:
         elder_id: the elder profile whose history to fetch.
+        language: the elder's *current* preferred_language, used to render
+            the daily check-in (see _render_content).
 
     Returns:
         list[dict[str, str]]: messages with 'sender' and 'content' keys.
@@ -104,7 +126,10 @@ def get_history(elder_id: str) -> list[dict[str, str]]:
         )
         .fetchall()
     )
-    return [{"sender": row["sender"], "content": row["content"]} for row in rows]
+    return [
+        {"sender": row["sender"], "content": _render_content(row["content"], language)}
+        for row in rows
+    ]
 
 
 def send_message(elder_id: str, user_text: str) -> str:
@@ -120,7 +145,7 @@ def send_message(elder_id: str, user_text: str) -> str:
     profile = get_profile(elder_id)
     target_language = profile.preferred_language if profile else "English"
 
-    history = _recent_messages(elder_id)
+    history = _recent_messages(elder_id, target_language)
     turn = [*history, {"role": "user", "content": user_text}]
 
     tags = call_structured(
@@ -139,7 +164,7 @@ def send_message(elder_id: str, user_text: str) -> str:
     )
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
 
-    reply = call_prose(model=CHAT_MODEL, system=_system_prompt(target_language), messages=turn)
+    reply = call_prose(model=CHAT_MODEL, system=build_system_prompt(target_language), messages=turn)
     _insert_message(elder_id, "ai", reply)
     return reply
 
@@ -161,6 +186,4 @@ def maybe_send_daily_checkin(elder_id: str) -> None:
     )
     if row is not None:
         return
-    profile = get_profile(elder_id)
-    target_language = profile.preferred_language if profile else "English"
-    _insert_message(elder_id, "ai", get_string(target_language, "daily_checkin"))
+    _insert_message(elder_id, "ai", _DAILY_CHECKIN_SENTINEL)

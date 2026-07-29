@@ -2,7 +2,12 @@
 
 import streamlit as st
 
+from backend.strings import get_string
 from ui import render_card
 
-st.title("Calendar")
-render_card("Coming soon", "Upcoming appointments and reminders.", icon="📅")
+lang = st.session_state["profile"].preferred_language
+
+st.title(get_string(lang, "nav_calendar"))
+render_card(
+    get_string(lang, "coming_soon_title"), get_string(lang, "calendar_coming_soon_body"), icon="📅"
+)
