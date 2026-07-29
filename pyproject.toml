@@ -1,0 +1,27 @@
+[project]
+name = "ai-elderly-companion"
+version = "0.1.0"
+description = "AI companion app for elderly users: chat, medication tracking, dementia support, and scam protection, with family kept in the loop."
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.120.2",
+    "streamlit>=1.60.0",
+    "supabase>=2.31.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

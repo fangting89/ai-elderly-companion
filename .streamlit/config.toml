@@ -1,0 +1,10 @@
+# Placeholder warm/elderly-friendly palette. Replace these values once a
+# Lovable mockup exists (see BUILD_PLAN.md Phase 0), reading its palette
+# directly into primaryColor/backgroundColor/secondaryBackgroundColor/textColor.
+[theme]
+base = "light"
+primaryColor = "#C8763E"
+backgroundColor = "#FFFBF5"
+secondaryBackgroundColor = "#F2E9DD"
+textColor = "#3A2E26"
+font = "sans serif"
