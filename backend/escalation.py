@@ -5,9 +5,9 @@ something might warrant a family alert. It owns the rule evaluation (the
 Escalation Rules table in BUILD_PLAN.md) so callers just report what
 happened; whether that rises to an alert is decided here.
 
-Built incrementally: chat-sentiment (Phase 1) and scam-detection (Phase 2)
-rules exist so far. Missed-medication and repeated-question-frequency rules
-are added in their own phases without changing this function's call sites.
+Built incrementally: chat-sentiment, scam-detection, and missed-medication
+rules exist so far. The repeated-question-frequency rule is still to come,
+added without changing any existing call site.
 """
 
 import uuid
@@ -31,6 +31,8 @@ def check_and_alert(elder_id: str, trigger_type: TriggerType, context: dict[str,
         _handle_chat_sentiment(elder_id, context)
     elif trigger_type == "scam_detected":
         _handle_scam_detected(elder_id, context)
+    elif trigger_type == "missed_medication":
+        _handle_missed_medication(elder_id, context)
 
 
 def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
@@ -39,6 +41,23 @@ def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
     _write_alert(
         elder_id, "scam_detected", f"A {risk_level}-risk scam attempt was detected: {summary}"
     )
+
+
+def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
+    medication_id = context.get("medication_id")
+    medication_name = context.get("medication_name", "a medication")
+    prior_missed_count = (
+        get_connection()
+        .execute(
+            "select count(*) from medication_logs where medication_id = ? and status = 'missed'",
+            (medication_id,),
+        )
+        .fetchone()[0]
+    )
+    if prior_missed_count >= 2:
+        _write_alert(
+            elder_id, "missed_medication", f"Repeated missed doses detected for {medication_name}."
+        )
 
 
 def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:

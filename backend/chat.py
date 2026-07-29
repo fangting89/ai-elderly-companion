@@ -6,7 +6,9 @@ never see an English draft first.
 """
 
 import uuid
+from datetime import date, datetime, timedelta
 
+from backend.calendar import add_event
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
 from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
@@ -17,12 +19,32 @@ from backend.strings import get_string
 # active on the day it was inserted.
 _DAILY_CHECKIN_SENTINEL = "__daily_checkin__"
 
-TAG_SYSTEM_PROMPT = (
-    "You classify the emotional tone of an elderly person's chat message and "
-    "whether it repeats a question they've already asked in this conversation. "
-    "Never invent facts about them; judge only from the text given. The "
-    "message may be in any language -- classify it regardless."
-)
+
+def _tag_system_prompt() -> str:
+    today = date.today()
+    # LLMs are unreliable at relative-date arithmetic ("next Tuesday"), so
+    # give it a grounded lookup table instead of asking it to compute one --
+    # same principle as elsewhere: derive what the code depends on
+    # deterministically, don't trust the model to compute it.
+    upcoming_dates = "\n".join(
+        f"{(today + timedelta(days=i)).isoformat()} ({(today + timedelta(days=i)).strftime('%A')})"
+        for i in range(1, 15)
+    )
+    return (
+        f"Today's date is {today.isoformat()} ({today.strftime('%A')}).\n\n"
+        "Upcoming dates for reference (use these exactly; do not calculate dates yourself):\n"
+        f"{upcoming_dates}\n\n"
+        "You classify an elderly person's chat message: its emotional tone, "
+        "whether it repeats a question already asked earlier in this "
+        "conversation, and whether it describes a schedulable event (an "
+        "appointment or reminder with a date) that should be added to their "
+        "calendar. When a day of the week is mentioned (e.g. 'Tuesday' or "
+        "'next Tuesday'), use the SOONEST matching date from the reference "
+        "list above, never a date two weeks away. Never invent facts about "
+        "them; judge only from the text given. The message may be in any "
+        "language -- classify it regardless."
+    )
+
 
 TAG_SCHEMA = {
     "type": "object",
@@ -38,8 +60,42 @@ TAG_SCHEMA = {
                 "True if this repeats a question already asked earlier in the conversation."
             ),
         },
+        "mentions_schedulable_event": {
+            "type": "boolean",
+            "description": (
+                "True if the message describes an appointment, reminder, or occasion "
+                "with a date that should be added to the calendar."
+            ),
+        },
+        "event_title": {
+            "type": "string",
+            "description": (
+                "Short event title if mentions_schedulable_event is true, else empty string."
+            ),
+        },
+        "event_date": {
+            "type": "string",
+            "description": (
+                "Event date as YYYY-MM-DD, resolved relative to today's date given above, "
+                "if mentions_schedulable_event is true, else empty string."
+            ),
+        },
+        "event_time": {
+            "type": "string",
+            "description": (
+                "Event time as 24-hour HH:MM if mentioned, '09:00' as a default if not, "
+                "or empty string if mentions_schedulable_event is false."
+            ),
+        },
     },
-    "required": ["sentiment", "repeated_question_flag"],
+    "required": [
+        "sentiment",
+        "repeated_question_flag",
+        "mentions_schedulable_event",
+        "event_title",
+        "event_date",
+        "event_time",
+    ],
 }
 
 
@@ -69,6 +125,19 @@ def _render_content(content: str, language: str) -> str:
     if content == _DAILY_CHECKIN_SENTINEL:
         return get_string(language, "daily_checkin")
     return content
+
+
+def _maybe_add_calendar_event(elder_id: str, tags: dict) -> None:
+    """Add a calendar event if the tagging call detected one, ignoring bad dates."""
+    if not tags.get("mentions_schedulable_event"):
+        return
+    try:
+        start_time = datetime.strptime(
+            f"{tags['event_date']} {tags['event_time']}", "%Y-%m-%d %H:%M"
+        )
+    except ValueError:
+        return
+    add_event(elder_id, title=tags["event_title"], start_time=start_time)
 
 
 def _recent_messages(elder_id: str, language: str, limit: int = 20) -> list[dict[str, str]]:
@@ -150,10 +219,12 @@ def send_message(elder_id: str, user_text: str) -> str:
 
     tags = call_structured(
         model=TAG_MODEL,
-        system=TAG_SYSTEM_PROMPT,
+        system=_tag_system_prompt(),
         messages=turn,
         tool_name="tag_message",
-        tool_description="Classify the sentiment and repetition of the latest message.",
+        tool_description=(
+            "Classify the sentiment, repetition, and calendar-worthiness of the latest message."
+        ),
         tool_schema=TAG_SCHEMA,
     )
     sentiment = tags["sentiment"]
@@ -163,6 +234,7 @@ def send_message(elder_id: str, user_text: str) -> str:
         elder_id, "elder", user_text, sentiment=sentiment, repeated_question_flag=repeated
     )
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
+    _maybe_add_calendar_event(elder_id, tags)
 
     reply = call_prose(model=CHAT_MODEL, system=build_system_prompt(target_language), messages=turn)
     _insert_message(elder_id, "ai", reply)
