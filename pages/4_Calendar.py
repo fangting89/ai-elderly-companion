@@ -2,5 +2,7 @@
 
 import streamlit as st
 
+from ui import render_card
+
 st.title("Calendar")
-st.info("Coming in Phase 3: upcoming appointments and reminders.")
+render_card("Coming soon", "Upcoming appointments and reminders.", icon="📅")

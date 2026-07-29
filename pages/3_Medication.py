@@ -2,5 +2,7 @@
 
 import streamlit as st
 
+from ui import render_card
+
 st.title("Medication")
-st.info("Coming in Phase 3: today's medication list and reminders.")
+render_card("Coming soon", "Today's medication list and reminders.", icon="💊")

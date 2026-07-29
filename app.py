@@ -3,8 +3,10 @@
 import streamlit as st
 
 from backend.db import get_client, get_profile
+from ui import inject_global_css
 
 st.set_page_config(page_title="AI Elderly Companion", layout="centered")
+inject_global_css()
 
 
 def _sign_in_form() -> None:

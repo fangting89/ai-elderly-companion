@@ -2,5 +2,7 @@
 
 import streamlit as st
 
+from ui import render_card
+
 st.title("Settings")
-st.info("Account and notification settings will land here in a later phase.")
+render_card("Coming soon", "Account and notification settings.", icon="⚙️")

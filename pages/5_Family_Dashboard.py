@@ -2,5 +2,11 @@
 
 import streamlit as st
 
+from ui import render_card
+
 st.title("Family Dashboard")
-st.info("Coming in Phase 5: adherence, sentiment trend, and alerts for your family member.")
+render_card(
+    "Coming soon",
+    "Adherence, sentiment trend, and alerts for your family member.",
+    icon="👨‍👩‍👧",
+)

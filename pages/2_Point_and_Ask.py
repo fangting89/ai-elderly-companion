@@ -2,8 +2,11 @@
 
 import streamlit as st
 
+from ui import render_card
+
 st.title("Point & Ask")
-st.info(
-    "Coming in Phase 2: take a photo of a letter or message to have it explained "
-    "or checked for scams."
+render_card(
+    "Coming soon",
+    "Take a photo of a letter or message to have it explained or checked for scams.",
+    icon="📷",
 )
