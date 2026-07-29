@@ -1,10 +1,19 @@
-"""Supabase client and profile lookup shared across the app."""
+"""Local SQLite connection, schema initialization, and demo profile seeding.
 
+No external account or manual setup is required — the schema self-applies
+and a demo elder/family profile pair is seeded on first run.
+"""
+
+import sqlite3
+import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import streamlit as st
-from supabase import Client, create_client
+
+DB_PATH = Path(__file__).parent.parent / "data" / "app.db"
+SCHEMA_PATH = Path(__file__).parent.parent / "sql" / "schema.sql"
 
 
 @dataclass
@@ -16,32 +25,59 @@ class Profile:
 
 
 @st.cache_resource
-def get_client() -> Client:
-    """Return a cached Supabase client built from Streamlit secrets.
+def get_connection() -> sqlite3.Connection:
+    """Return a cached SQLite connection, schema-initialized and demo-seeded.
 
     Returns:
-        Client: an authenticated Supabase client instance.
+        sqlite3.Connection: a connection with row access by column name.
     """
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(SCHEMA_PATH.read_text())
+    conn.commit()
+    _seed_demo_profiles(conn)
+    return conn
 
 
-def get_profile(user_id: str) -> Profile | None:
-    """Fetch a user's profile row by id.
+def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
+    """Insert a demo elder and linked family profile if none exist yet."""
+    existing = conn.execute("select count(*) from profiles").fetchone()[0]
+    if existing > 0:
+        return
+
+    elder_id = str(uuid.uuid4())
+    family_id = str(uuid.uuid4())
+    conn.execute(
+        "insert into profiles (id, role, display_name) values (?, 'elder', ?)",
+        (elder_id, "Grandma Tan"),
+    )
+    conn.execute(
+        "insert into profiles (id, role, display_name, elder_id) values (?, 'family', ?, ?)",
+        (family_id, "Mei Lin", elder_id),
+    )
+    conn.commit()
+
+
+def get_profile_by_role(role: Literal["elder", "family"]) -> Profile | None:
+    """Fetch the demo profile matching a role.
 
     Args:
-        user_id: Supabase auth user id.
+        role: "elder" or "family".
 
     Returns:
-        Profile | None: the matching profile, or None if not found.
+        Profile | None: the matching profile, or None if not seeded yet.
     """
-    response = get_client().table("profiles").select("*").eq("id", user_id).limit(1).execute()
-    rows = response.data
-    if not rows:
+    row = (
+        get_connection()
+        .execute("select * from profiles where role = ? limit 1", (role,))
+        .fetchone()
+    )
+    if row is None:
         return None
-    row = rows[0]
     return Profile(
         id=row["id"],
         role=row["role"],
         display_name=row["display_name"],
-        elder_id=row.get("elder_id"),
+        elder_id=row["elder_id"],
     )

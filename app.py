@@ -1,38 +1,16 @@
-"""Entry point: Supabase auth and role-based page navigation."""
+"""Entry point: demo role selector and role-based page navigation.
+
+No real login for this POC — a sidebar selector switches between the
+seeded demo elder and family profiles.
+"""
 
 import streamlit as st
 
-from backend.db import get_client, get_profile
+from backend.db import get_profile_by_role
 from ui import inject_global_css
 
 st.set_page_config(page_title="AI Elderly Companion", layout="centered")
 inject_global_css()
-
-
-def _sign_in_form() -> None:
-    """Render the sign-in form and populate st.session_state on success."""
-    st.title("AI Elderly Companion")
-    with st.form("sign_in"):
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in")
-
-    if not submitted:
-        return
-
-    try:
-        result = get_client().auth.sign_in_with_password({"email": email, "password": password})
-    except Exception as exc:
-        st.error(f"Sign in failed: {exc}")
-        return
-
-    profile = get_profile(result.user.id)
-    if profile is None:
-        st.error("No profile found for this account. Ask an admin to set one up.")
-        return
-
-    st.session_state["profile"] = profile
-    st.rerun()
 
 
 def _elder_pages() -> list[st.Page]:
@@ -51,17 +29,18 @@ def _family_pages() -> list[st.Page]:
     ]
 
 
-profile = st.session_state.get("profile")
+with st.sidebar:
+    role = st.selectbox("View as", ["elder", "family"], format_func=str.title)
 
+profile = get_profile_by_role(role)
 if profile is None:
-    _sign_in_form()
-else:
-    with st.sidebar:
-        st.write(f"Signed in as **{profile.display_name}** ({profile.role})")
-        if st.button("Sign out"):
-            get_client().auth.sign_out()
-            del st.session_state["profile"]
-            st.rerun()
+    st.error("No demo profile found. Restart the app to reseed demo data.")
+    st.stop()
 
-    pages = _elder_pages() if profile.role == "elder" else _family_pages()
-    st.navigation(pages).run()
+st.session_state["profile"] = profile
+
+with st.sidebar:
+    st.write(f"Viewing as **{profile.display_name}** ({profile.role})")
+
+pages = _elder_pages() if profile.role == "elder" else _family_pages()
+st.navigation(pages).run()
