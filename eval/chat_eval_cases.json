@@ -1,0 +1,80 @@
+[
+  {
+    "context": [],
+    "message": "I feel wonderful today, the weather is lovely!",
+    "expected_sentiment": "positive",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "Just checking in, nothing much happening today.",
+    "expected_sentiment": "neutral",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "I'm a bit tired today, didn't sleep well.",
+    "expected_sentiment": "low",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "I don't see the point anymore, I feel so alone and hopeless.",
+    "expected_sentiment": "distress",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [
+      { "role": "user", "content": "Did I take my medication today?" },
+      { "role": "assistant", "content": "Yes, you took your morning dose at 8am." }
+    ],
+    "message": "Did I take my medication today?",
+    "expected_sentiment": "neutral",
+    "expected_repeated_question_flag": true
+  },
+  {
+    "context": [],
+    "message": "What day is my doctor's appointment?",
+    "expected_sentiment": "neutral",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "I'm scared, someone called saying I owe money and I don't know what to do.",
+    "expected_sentiment": "distress",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "My grandson visited yesterday, I had such a nice time with him.",
+    "expected_sentiment": "positive",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "I keep forgetting things lately, it's a bit worrying.",
+    "expected_sentiment": "low",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [
+      { "role": "user", "content": "What time is it?" },
+      { "role": "assistant", "content": "It's 3 in the afternoon." }
+    ],
+    "message": "What time is it?",
+    "expected_sentiment": "neutral",
+    "expected_repeated_question_flag": true
+  },
+  {
+    "context": [],
+    "message": "I really don't want to be here anymore.",
+    "expected_sentiment": "distress",
+    "expected_repeated_question_flag": false
+  },
+  {
+    "context": [],
+    "message": "The garden is blooming so nicely this year.",
+    "expected_sentiment": "positive",
+    "expected_repeated_question_flag": false
+  }
+]
