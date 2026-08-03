@@ -5,7 +5,10 @@ import streamlit as st
 from backend import medications
 from backend.strings import get_string
 
-_STATUS_ICON = {"pending": "⏰", "taken": "✅", "missed": "⚠️"}
+# "missed" deliberately isn't an alarming icon: it fires purely from
+# scheduled time passing, unrelated to whether it's ever risen to a
+# family alert -- ⚠️ is reserved for the Family Dashboard's actual alerts.
+_STATUS_ICON = {"pending": "⏰", "taken": "✅", "missed": "🔔"}
 
 profile = st.session_state["profile"]
 lang = profile.preferred_language
