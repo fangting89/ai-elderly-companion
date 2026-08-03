@@ -98,6 +98,22 @@ def list_entries(elder_id: str) -> list[MemoryBankEntry]:
     ]
 
 
+def delete_entry(entry_id: str) -> None:
+    """Delete a memory bank entry, removing its photo file from disk if any.
+
+    Args:
+        entry_id: the memory bank entry to delete.
+    """
+    conn = get_connection()
+    row = conn.execute(
+        "select image_path from memory_bank_entries where id = ?", (entry_id,)
+    ).fetchone()
+    if row is not None and row["image_path"]:
+        (UPLOADS_DIR / Path(row["image_path"]).name).unlink(missing_ok=True)
+    conn.execute("delete from memory_bank_entries where id = ?", (entry_id,))
+    conn.commit()
+
+
 def get_context_facts(elder_id: str, limit: int = 10) -> list[str]:
     """Return recent memory bank facts as plain text, for chat context.
 
@@ -127,10 +143,21 @@ def generate_reminiscence_prompt(elder_id: str, target_language: str) -> str | N
         return None
     fact = random.choice(facts)
     language_clause = "" if target_language == "English" else f" Write it in {target_language}."
+    # Reminiscence should be a bridge to a real relationship, not just a
+    # closed loop with the AI -- about half the time, if the fact names or
+    # implies a specific person (a relative, a friend), gently nudge toward
+    # sharing the memory with them, rather than only reminiscing about it here.
+    bridge_clause = (
+        " If this memory involves a specific family member or friend, gently "
+        "suggest, in passing, that it might be nice to call or tell them about "
+        "this memory -- but only if it fits naturally, don't force it."
+        if random.random() < 0.5
+        else ""
+    )
     system = (
         "You write a single warm, short conversation-opening message for an "
         "elderly person, based on one fact their family shared about them. "
-        f"Reference it naturally, like a fond memory.{language_clause} Do not "
+        f"Reference it naturally, like a fond memory.{language_clause}{bridge_clause} Do not "
         "invent any details beyond what's given."
     )
     return call_prose(model=CHAT_MODEL, system=system, messages=[{"role": "user", "content": fact}])
