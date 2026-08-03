@@ -5,8 +5,12 @@ description = "AI companion app for elderly users: chat, medication tracking, de
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.120.2",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
     "pillow>=12.3.0",
+    "python-multipart>=0.0.32",
     "streamlit>=1.60.0",
+    "uvicorn>=0.51.0",
 ]
 
 [dependency-groups]
