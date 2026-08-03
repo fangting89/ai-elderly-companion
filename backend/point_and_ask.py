@@ -3,7 +3,7 @@
 The vision model only ever extracts signals (image quality, scam-behavior
 booleans) via forced tool-use. The actual branch decision (explain vs. scam
 vs. unclear) is deterministic Python arithmetic over those signals, not
-another LLM call — keeps the safety-relevant decision testable and
+another LLM call, which keeps the safety-relevant decision testable and
 reproducible.
 """
 
@@ -30,8 +30,11 @@ UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"
 CLASSIFY_SYSTEM_PROMPT = (
     "You analyze a photo of a letter, message, or document sent to an elderly "
     "person. Extract only what is visible; never invent details. Judge each "
-    "signal independently — a separate scoring system decides overall risk, "
-    "not you."
+    "signal independently: a separate scoring system decides overall risk, "
+    "not you. In content_summary, never restate a full NRIC number, full home "
+    "address, or other sensitive personal identifier even if visible in the "
+    "photo. Describe it generically instead (e.g. 'asks the reader to "
+    "confirm their NRIC')."
 )
 
 CLASSIFY_SCHEMA = {
@@ -222,7 +225,10 @@ def explain_image(image_bytes: bytes, media_type: str, target_language: str) -> 
     system = (
         "You explain a document photo to an elderly person in simple, plain "
         f"language.{language_clause} Never give legal or financial advice; "
-        "suggest they involve family for anything involving money or deadlines."
+        "suggest they involve family for anything involving money or deadlines. "
+        "Never restate a full NRIC number, full home address, or other sensitive "
+        "personal identifier even if visible in the photo. Refer to it generically "
+        "instead (e.g. 'your NRIC number')."
     )
     return call_prose(
         model=CHAT_MODEL,
