@@ -1,6 +1,5 @@
-# Placeholder warm/elderly-friendly palette. Replace these values once a
-# Lovable mockup exists (see BUILD_PLAN.md Phase 0), reading its palette
-# directly into primaryColor/backgroundColor/secondaryBackgroundColor/textColor.
+# Warm, elderly-friendly palette: high contrast against the cream background,
+# no pure white or pure black. Kept in sync with the React app's styles.css.
 [theme]
 base = "light"
 primaryColor = "#C8763E"
