@@ -2,8 +2,8 @@
 
 check_and_alert() is the single entry point every feature module calls when
 something might warrant a family alert. It owns the rule evaluation (the
-Escalation Rules table in BUILD_PLAN.md) so callers just report what
-happened; whether that rises to an alert is decided here.
+Escalation Rules table in docs/DESIGN_PRINCIPLES.md) so callers just report
+what happened; whether that rises to an alert is decided here.
 
 Built incrementally: chat-sentiment, scam-detection, missed-medication, and
 repeated-question-frequency rules all exist now.
@@ -42,25 +42,42 @@ def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
     risk_level = context.get("risk_level", "medium")
     summary = context.get("summary", "")
     _write_alert(
-        elder_id, "scam_detected", f"A {risk_level}-risk scam attempt was detected: {summary}"
+        elder_id,
+        "scam_detected",
+        f"A {risk_level}-risk scam message was detected and blocked before any "
+        f"harm was done. {summary}",
     )
 
 
 def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
     medication_id = context.get("medication_id")
     medication_name = context.get("medication_name", "a medication")
-    prior_missed_count = (
-        get_connection()
-        .execute(
-            "select count(*) from medication_logs where medication_id = ? and status = 'missed'",
-            (medication_id,),
-        )
-        .fetchone()[0]
+    conn = get_connection()
+    prior_missed_count = conn.execute(
+        "select count(*) from medication_logs where medication_id = ? and status = 'missed'",
+        (medication_id,),
+    ).fetchone()[0]
+    if prior_missed_count < 2:
+        return
+
+    # Without this check, every subsequent missed dose past the 2nd re-fires
+    # a new alert for the same ongoing pattern instead of one. Once family
+    # acknowledges it, a fresh miss is allowed to alert again -- that's
+    # correct, since acknowledgment means they've seen the current pattern.
+    already_open = conn.execute(
+        "select 1 from alerts where elder_id = ? and alert_type = 'missed_medication' "
+        "and status = 'open' and message like ? limit 1",
+        (elder_id, f"%{medication_name}%"),
+    ).fetchone()
+    if already_open is not None:
+        return
+
+    _write_alert(
+        elder_id,
+        "missed_medication",
+        f"Repeated missed doses of {medication_name} were detected "
+        "(already shown as missed on the Medication page).",
     )
-    if prior_missed_count >= 2:
-        _write_alert(
-            elder_id, "missed_medication", f"Repeated missed doses detected for {medication_name}."
-        )
 
 
 def get_repeated_question_weekly_counts(elder_id: str) -> tuple[int, int]:
@@ -105,19 +122,27 @@ def _handle_repeated_question(elder_id: str, context: dict[str, Any]) -> None:
         _write_alert(
             elder_id,
             "repeated_question_increase",
-            f"Repeated questions have increased this week ({this_week} vs {last_week} last week).",
+            f"Repeated questions have increased this week ({this_week} vs {last_week} "
+            "last week), which may be worth a check-in call.",
         )
 
 
 def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:
     sentiment = context.get("sentiment")
     if sentiment == "distress":
-        _write_alert(elder_id, "distress", "A recent message suggested significant distress.")
+        _write_alert(
+            elder_id,
+            "distress",
+            "A recent message suggested significant distress. The companion "
+            "responded with support and encouraged reaching out to family or "
+            "a professional.",
+        )
     elif sentiment == "low" and _low_mood_streak_days(elder_id) >= 3:
         _write_alert(
             elder_id,
             "sentiment_decline",
-            "Low mood has been detected for 3 or more consecutive days.",
+            "Low mood has been detected for 3 or more consecutive days. The "
+            "companion has continued checking in warmly each day.",
         )
 
 

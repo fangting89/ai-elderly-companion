@@ -94,6 +94,53 @@ def test_repeat_missed_medication_escalates(conn):
     assert _alert_count(conn, "missed_medication") == 1
 
 
+def test_further_misses_do_not_duplicate_open_alert(conn):
+    _insert_medication(conn)
+    for day, log_id in (("01", "log-1"), ("02", "log-2"), ("03", "log-3")):
+        conn.execute(
+            "insert into medication_logs (id, medication_id, elder_id, scheduled_for, status) "
+            "values (?, 'med-1', 'elder-1', ?, 'missed')",
+            (log_id, f"2026-01-{day} 08:00:00"),
+        )
+    conn.commit()
+    # Same event reported three times, as get_todays_doses would on each of
+    # the three missed days -- should still be exactly one open alert, not
+    # one per threshold crossing.
+    for _ in range(3):
+        escalation.check_and_alert(
+            "elder-1",
+            "missed_medication",
+            {"medication_id": "med-1", "medication_name": "Aspirin"},
+        )
+    assert _alert_count(conn, "missed_medication") == 1
+
+
+def test_missed_medication_alerts_again_after_acknowledged(conn):
+    _insert_medication(conn)
+    for day, log_id in (("01", "log-1"), ("02", "log-2")):
+        conn.execute(
+            "insert into medication_logs (id, medication_id, elder_id, scheduled_for, status) "
+            "values (?, 'med-1', 'elder-1', ?, 'missed')",
+            (log_id, f"2026-01-{day} 08:00:00"),
+        )
+    conn.commit()
+    escalation.check_and_alert(
+        "elder-1", "missed_medication", {"medication_id": "med-1", "medication_name": "Aspirin"}
+    )
+    conn.execute("update alerts set status = 'acknowledged' where alert_type = 'missed_medication'")
+    conn.commit()
+
+    conn.execute(
+        "insert into medication_logs (id, medication_id, elder_id, scheduled_for, status) "
+        "values ('log-3', 'med-1', 'elder-1', '2026-01-03 08:00:00', 'missed')"
+    )
+    conn.commit()
+    escalation.check_and_alert(
+        "elder-1", "missed_medication", {"medication_id": "med-1", "medication_name": "Aspirin"}
+    )
+    assert _alert_count(conn, "missed_medication") == 2
+
+
 def _insert_repeated_question_message(conn, when: datetime):
     conn.execute(
         "insert into chat_messages "
