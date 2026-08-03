@@ -47,6 +47,23 @@ StringKey = Literal[
     "add_button",
     "chat_share_memory_button",
     "chat_no_memories_message",
+    "nav_home",
+    "family_nudge_line",
+    "home_reply_button",
+    "home_yes_remind_button",
+    "family_nudge_accepted_message",
+    "companion_boundary_statement",
+    "activities_card_title",
+    "activities_intro",
+    "voice_read_aloud_button",
+    "voice_mic_button",
+    "voice_not_supported_message",
+    "point_and_ask_notify_family_button",
+    "point_and_ask_family_notified_message",
+    "point_and_ask_tips",
+    "point_and_ask_camera_button",
+    "point_and_ask_example_label",
+    "point_and_ask_example_caption",
 ]
 
 _STRINGS: dict[str, dict[StringKey, str]] = {
@@ -88,6 +105,32 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "add_button": "Add",
         "chat_share_memory_button": "Share a memory",
         "chat_no_memories_message": "No memories have been added yet. Ask your family to add some!",
+        "nav_home": "Home",
+        "family_nudge_line": (
+            "It's been a little while since you've mentioned {name}. Would you "
+            "like a reminder to give them a call?"
+        ),
+        "home_reply_button": "Reply",
+        "home_yes_remind_button": "Yes, remind me",
+        "family_nudge_accepted_message": "Wonderful, don't forget to give them a call!",
+        "companion_boundary_statement": (
+            "I'm here for the quiet moments, but I'm not a replacement for a real "
+            "voice or a real visit. I'll always encourage you to reach out to the "
+            "people who love you."
+        ),
+        "activities_card_title": "Activities Near You",
+        "activities_intro": "A few things happening in your community:",
+        "voice_read_aloud_button": "🔊 Read aloud",
+        "voice_mic_button": "🎤 Speak instead",
+        "voice_not_supported_message": "Voice isn't supported in this browser yet.",
+        "point_and_ask_notify_family_button": "Let my family know now",
+        "point_and_ask_family_notified_message": "Your family has already been told about this.",
+        "point_and_ask_tips": (
+            "Tips: lay it flat, use good light, and get close enough that the words fill the photo."
+        ),
+        "point_and_ask_camera_button": "Take a Photo",
+        "point_and_ask_example_label": "See an example",
+        "point_and_ask_example_caption": "A clear, well-lit photo looks like this.",
     },
     "Mandarin Chinese": {
         "scam_warning_title": "这看起来可能是一个骗局。",
@@ -123,6 +166,26 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "add_button": "添加",
         "chat_share_memory_button": "分享一段回忆",
         "chat_no_memories_message": "还没有添加任何回忆。请让家人帮忙添加吧！",
+        "nav_home": "首页",
+        "family_nudge_line": "好久没听你提到{name}了，要不要我提醒你联系一下{name}？",
+        "home_reply_button": "回复",
+        "home_yes_remind_button": "好的，提醒我",
+        "family_nudge_accepted_message": "太好了，别忘了联系他们哦！",
+        "companion_boundary_statement": (
+            "我在这里陪伴您度过安静的时刻，但我无法取代真实的声音和真实的陪伴。"
+            "我会一直鼓励您多联系爱您的家人朋友。"
+        ),
+        "activities_card_title": "附近活动",
+        "activities_intro": "社区里最近有这些活动：",
+        "voice_read_aloud_button": "🔊 朗读",
+        "voice_mic_button": "🎤 语音输入",
+        "voice_not_supported_message": "此浏览器暂不支持语音功能。",
+        "point_and_ask_notify_family_button": "立即通知家人",
+        "point_and_ask_family_notified_message": "您的家人已经收到通知了。",
+        "point_and_ask_tips": "小提示：把它放平，光线要充足，靠近一点让文字填满照片。",
+        "point_and_ask_camera_button": "拍照",
+        "point_and_ask_example_label": "查看示例",
+        "point_and_ask_example_caption": "清晰、光线良好的照片是这样的。",
     },
     "Malay": {
         "scam_warning_title": "Ini kelihatan seperti penipuan.",
@@ -166,6 +229,33 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "chat_no_memories_message": (
             "Belum ada kenangan ditambah. Minta ahli keluarga anda menambahnya!"
         ),
+        "nav_home": "Laman Utama",
+        "family_nudge_line": (
+            "Sudah agak lama anda tidak menyebut {name}. Mahu saya ingatkan anda "
+            "untuk hubungi {name}?"
+        ),
+        "home_reply_button": "Balas",
+        "home_yes_remind_button": "Ya, ingatkan saya",
+        "family_nudge_accepted_message": "Baguslah, jangan lupa hubungi mereka!",
+        "companion_boundary_statement": (
+            "Saya di sini untuk detik-detik yang tenang, tetapi saya bukan pengganti "
+            "suara sebenar atau lawatan sebenar. Saya akan sentiasa menggalakkan anda "
+            "menghubungi orang yang menyayangi anda."
+        ),
+        "activities_card_title": "Aktiviti Berdekatan",
+        "activities_intro": "Beberapa aktiviti di komuniti anda:",
+        "voice_read_aloud_button": "🔊 Baca kuat",
+        "voice_mic_button": "🎤 Bercakap sebagai ganti",
+        "voice_not_supported_message": "Suara belum disokong dalam pelayar ini.",
+        "point_and_ask_notify_family_button": "Beritahu keluarga saya sekarang",
+        "point_and_ask_family_notified_message": "Keluarga anda sudah diberitahu tentang ini.",
+        "point_and_ask_tips": (
+            "Petua: letakkan rata, guna cahaya yang baik, dan dekatkan supaya tulisan "
+            "memenuhi gambar."
+        ),
+        "point_and_ask_camera_button": "Ambil Gambar",
+        "point_and_ask_example_label": "Lihat contoh",
+        "point_and_ask_example_caption": "Gambar yang jelas dan bercahaya baik kelihatan begini.",
     },
     "Tamil": {
         "scam_warning_title": "இது ஒரு மோசடி போல் தெரிகிறது.",
@@ -210,6 +300,32 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
         "chat_no_memories_message": (
             "இன்னும் நினைவுகள் எதுவும் சேர்க்கப்படவில்லை. உங்கள் குடும்பத்தினரிடம் சேர்க்கச் சொல்லுங்கள்!"
         ),
+        "nav_home": "முகப்பு",
+        "family_nudge_line": (
+            "நீங்கள் {name} பற்றி சொல்லி சிறிது காலம் ஆகிறது. {name}-ஐ அழைக்க நினைவூட்டட்டுமா?"
+        ),
+        "home_reply_button": "பதிலளிக்கவும்",
+        "home_yes_remind_button": "ஆம், நினைவூட்டுங்கள்",
+        "family_nudge_accepted_message": "அருமை, அவர்களை அழைக்க மறக்காதீர்கள்!",
+        "companion_boundary_statement": (
+            "அமைதியான நேரங்களுக்கு நான் இங்கே இருக்கிறேன், ஆனால் உண்மையான குரலுக்கோ "
+            "உண்மையான சந்திப்புக்கோ நான் மாற்று இல்லை. உங்களை நேசிக்கும் மக்களைத் "
+            "தொடர்பு கொள்ள நான் எப்போதும் ஊக்குவிப்பேன்."
+        ),
+        "activities_card_title": "அருகிலுள்ள செயல்பாடுகள்",
+        "activities_intro": "உங்கள் சமூகத்தில் நடக்கும் சில நிகழ்வுகள்:",
+        "voice_read_aloud_button": "🔊 சத்தமாக படிக்கவும்",
+        "voice_mic_button": "🎤 பேசுங்கள்",
+        "voice_not_supported_message": "இந்த உலாவியில் குரல் இன்னும் ஆதரிக்கப்படவில்லை.",
+        "point_and_ask_notify_family_button": "இப்போதே என் குடும்பத்திற்கு தெரிவிக்கவும்",
+        "point_and_ask_family_notified_message": "உங்கள் குடும்பத்திற்கு ஏற்கனவே தெரிவிக்கப்பட்டது.",
+        "point_and_ask_tips": (
+            "குறிப்புகள்: அதை தட்டையாக வையுங்கள், நல்ல வெளிச்சத்தில் எடுங்கள், "
+            "எழுத்துக்கள் புகைப்படத்தை நிரப்பும் அளவுக்கு நெருங்கி எடுங்கள்."
+        ),
+        "point_and_ask_camera_button": "புகைப்படம் எடுக்கவும்",
+        "point_and_ask_example_label": "ஒரு உதாரணத்தைப் பார்க்கவும்",
+        "point_and_ask_example_caption": "தெளிவான, நல்ல வெளிச்சமுள்ள புகைப்படம் இப்படி இருக்கும்.",
     },
 }
 

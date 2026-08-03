@@ -16,6 +16,7 @@ inject_global_css()
 
 def _elder_pages(language: str) -> list[st.Page]:
     return [
+        st.Page("pages/0_Home.py", title=get_string(language, "nav_home"), icon="🏠"),
         st.Page("pages/1_Chat.py", title=get_string(language, "nav_chat"), icon="💬"),
         st.Page(
             "pages/2_Point_and_Ask.py", title=get_string(language, "nav_point_and_ask"), icon="📷"
