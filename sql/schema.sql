@@ -42,10 +42,11 @@ create table if not exists calendar_events (
 create table if not exists chat_messages (
   id text primary key,
   elder_id text not null references profiles(id),
-  sender text not null check (sender in ('elder', 'ai')),
+  sender text not null check (sender in ('elder', 'ai', 'family')),
   content text not null,
   sentiment text check (sentiment in ('positive', 'neutral', 'low', 'distress')),
   repeated_question_flag integer default 0,
+  sender_name text,  -- set for sender='family' rows, e.g. "Mei Lin"
   created_at text default (datetime('now'))
 );
 
@@ -79,5 +80,28 @@ create table if not exists alerts (
      'repeated_question_increase', 'distress')),
   message text not null,
   status text not null default 'open' check (status in ('open', 'acknowledged')),
+  created_at text default (datetime('now'))
+);
+
+-- Generic event log: lets the companion-line mechanism know what it last
+-- showed (avoid repeating a nudge every page load) and doubles as the data
+-- source for the "connections facilitated" family-dashboard metric.
+create table if not exists companion_events (
+  id text primary key,
+  elder_id text not null references profiles(id),
+  event_type text not null check (event_type in
+    ('family_nudge_shown', 'family_nudge_accepted', 'reminiscence_shown')),
+  created_at text default (datetime('now'))
+);
+
+-- Backs the React frontend's Home-screen "note from family" card. Kept
+-- separate from chat_messages: Chat isn't wired to real data yet, and
+-- coupling a Home-screen note to the chat schema now would be premature.
+create table if not exists family_notes (
+  id text primary key,
+  elder_id text not null references profiles(id),
+  sender_name text not null,
+  relation text,
+  text text not null,
   created_at text default (datetime('now'))
 );

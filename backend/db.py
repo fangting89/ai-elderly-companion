@@ -1,12 +1,15 @@
-"""Local SQLite connection, schema initialization, and demo profile seeding.
+"""Local SQLite connection, schema initialization, and demo data seeding.
 
 No external account or manual setup is required — the schema self-applies
-and a demo elder/family profile pair is seeded on first run.
+and a demo elder/family profile pair, with realistic medications and
+calendar events, is seeded on first run.
 """
 
+import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -58,6 +61,32 @@ def _migrate(conn: sqlite3.Connection) -> None:
         )
         conn.commit()
 
+    chat_columns = {row["name"] for row in conn.execute("pragma table_info(chat_messages)")}
+    if "sender_name" not in chat_columns:
+        # SQLite can't ALTER a CHECK constraint, so allowing sender='family'
+        # and adding sender_name both require rebuilding the table.
+        conn.executescript(
+            """
+            create table chat_messages_new (
+              id text primary key,
+              elder_id text not null references profiles(id),
+              sender text not null check (sender in ('elder', 'ai', 'family')),
+              content text not null,
+              sentiment text check (sentiment in ('positive', 'neutral', 'low', 'distress')),
+              repeated_question_flag integer default 0,
+              sender_name text,
+              created_at text default (datetime('now'))
+            );
+            insert into chat_messages_new
+              (id, elder_id, sender, content, sentiment, repeated_question_flag, created_at)
+              select id, elder_id, sender, content, sentiment, repeated_question_flag, created_at
+              from chat_messages;
+            drop table chat_messages;
+            alter table chat_messages_new rename to chat_messages;
+            """
+        )
+        conn.commit()
+
 
 def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
     """Insert a demo elder and linked family profile if none exist yet."""
@@ -76,6 +105,36 @@ def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
         "insert into profiles (id, role, display_name, elder_id) values (?, 'family', ?, ?)",
         (family_id, "Mei Lin", elder_id),
     )
+    for name, dosage, times in (
+        ("Metformin", "500mg", ["08:00", "20:00"]),
+        ("Amlodipine", "5mg", ["08:00"]),
+    ):
+        conn.execute(
+            "insert into medications (id, elder_id, name, dosage, times_per_day) "
+            "values (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), elder_id, name, dosage, json.dumps(times)),
+        )
+
+    for title, days_out, hour_minute in (
+        ("Dentist Appointment", 6, "15:00"),
+        ("Optician Appointment", 5, "11:00"),
+    ):
+        start_time = (datetime.now() + timedelta(days=days_out)).strftime(f"%Y-%m-%d {hour_minute}")
+        conn.execute(
+            "insert into calendar_events (id, elder_id, title, event_type, start_time) "
+            "values (?, ?, ?, 'appointment', ?)",
+            (str(uuid.uuid4()), elder_id, title, start_time),
+        )
+
+    # Shows the calendar isn't purely medical/admin -- placeholder dates
+    # relative to seed time, standing in for real lunar-calendar lookups.
+    for title, days_out in (("Mid-Autumn Festival", 45), ("Deepavali", 120)):
+        start_time = (datetime.now() + timedelta(days=days_out)).strftime("%Y-%m-%d %H:%M")
+        conn.execute(
+            "insert into calendar_events (id, elder_id, title, event_type, start_time, notes) "
+            "values (?, ?, ?, 'other', ?, ?)",
+            (str(uuid.uuid4()), elder_id, title, start_time, "Cultural calendar awareness"),
+        )
     conn.commit()
 
 
