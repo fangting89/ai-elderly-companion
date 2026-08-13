@@ -60,24 +60,26 @@ read English well.
 
 ## Screenshots
 
-<!--
-  TODO: capture and add screenshots, then replace this comment with image
-  embeds, e.g.:
+### Home and daily check-in
 
-    ### Home & daily check-in
-    ![Home screen](docs/screenshots/home.png)
+The elder's landing screen: a photo from the memory bank, a note from
+family, and the day's opening question.
 
-    ### Point & Ask
-    ![Point and Ask result](docs/screenshots/point-and-ask.png)
+![Home screen](docs/screenshots/home.png)
 
-    ### Family dashboard
-    ![Family dashboard](docs/screenshots/family-dashboard.png)
+### Point & Ask
 
-  Suggested shots: the elder Home screen (React app), a Point & Ask scam
-  warning and a legit-document explanation side by side, the Medication
-  page showing a taken/missed/pending mix, and the Family Dashboard.
-  Store images under docs/screenshots/.
--->
+A photographed message classified as a scam, with the warning written in
+plain language and no action the elder can take alone.
+
+![Point and Ask showing a scam warning](docs/screenshots/point-and-ask.png)
+
+### Family dashboard
+
+The family-only view: a weekly summary in the companion's voice, then
+what's worth knowing, adherence, and mood.
+
+![Family dashboard](docs/screenshots/family-dashboard.png)
 
 ## Architecture
 
