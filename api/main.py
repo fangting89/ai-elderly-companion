@@ -9,12 +9,15 @@ local demo use (localhost only); would need real authentication/
 authorization before any deployment reachable beyond your own machine.
 """
 
+from datetime import datetime
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend import (
     activities,
+    calendar,
     chat,
     companion_line,
     family_notes,
@@ -364,3 +367,55 @@ def nearby_activities() -> list[dict]:
         {"icon": a.icon, "title": a.title, "schedule": a.schedule}
         for a in activities.get_nearby_activities()
     ]
+
+
+@app.get("/api/calendar")
+def list_calendar_events(elder_id: str) -> list[dict]:
+    """List an elder's upcoming calendar events, soonest first.
+
+    Args:
+        elder_id: the elder profile to list events for.
+
+    Returns:
+        list[dict]: {"id", "title", "eventType", "startTime", "notes"} for
+            each upcoming event.
+    """
+    return [
+        {
+            "id": e.id,
+            "title": e.title,
+            "eventType": e.event_type,
+            "startTime": e.start_time.isoformat(),
+            "notes": e.notes,
+        }
+        for e in calendar.list_upcoming_events(elder_id)
+    ]
+
+
+@app.post("/api/calendar")
+def add_calendar_event(
+    elder_id: str = Form(...),
+    title: str = Form(...),
+    start_time: str = Form(...),
+    notes: str = Form(""),
+) -> dict:
+    """Add a calendar event for an elder.
+
+    Args:
+        elder_id: the elder profile this event belongs to.
+        title: short event title.
+        start_time: an ISO 8601 datetime string, e.g. from an HTML
+            datetime-local input.
+        notes: optional free-text notes.
+
+    Returns:
+        dict: {"status": "ok"}.
+    """
+    if not title.strip():
+        raise HTTPException(status_code=422, detail="Title can't be empty.")
+    try:
+        parsed_start = datetime.fromisoformat(start_time)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid start_time.") from exc
+    calendar.add_event(elder_id, title.strip(), parsed_start, notes=notes.strip() or None)
+    return {"status": "ok"}

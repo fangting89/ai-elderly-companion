@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Users, CalendarPlus } from 'lucide-react'
-import { useCompanion } from '@/lib/companion-store'
+import { NotebookText, CalendarPlus } from 'lucide-react'
+import { toast } from 'sonner'
 import { ElderShell } from '@/components/ElderShell'
-import { useDemoProfile } from '@/lib/hooks'
+import { useAddCalendarEvent, useCalendarEvents, useDemoProfile } from '@/lib/hooks'
 import { getString } from '@/lib/strings'
 
 export const Route = createFileRoute('/calendar')({
@@ -13,21 +13,33 @@ export const Route = createFileRoute('/calendar')({
   component: Calendar,
 })
 
+function formatEventTime(iso: string) {
+  const date = new Date(iso)
+  return date.toLocaleString('en-SG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 function Calendar() {
-  const { events, addEvent } = useCompanion()
   const { data: profile } = useDemoProfile()
+  const { data: events, isLoading } = useCalendarEvents(profile?.elderId)
+  const addEvent = useAddCalendarEvent(profile?.elderId)
   const language = profile?.preferredLanguage ?? 'English'
   const [isAdding, setIsAdding] = useState(false)
   const [title, setTitle] = useState('')
-  const [day, setDay] = useState('')
+  const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-  const [withWhom, setWithWhom] = useState('')
+  const [notes, setNotes] = useState('')
 
   const resetForm = () => {
     setTitle('')
-    setDay('')
+    setDate('')
     setTime('')
-    setWithWhom('')
+    setNotes('')
     setIsAdding(false)
   }
 
@@ -37,39 +49,60 @@ function Calendar() {
       subtitle={getString(language, 'calendar_subtitle')}
     >
       <div className="grid gap-5">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className="rounded-3xl border-2 border-border bg-card p-6 shadow-soft"
-          >
-            <p className="text-base font-semibold uppercase tracking-wide text-primary">
-              {event.day} · {event.time}
-            </p>
-            <p className="mt-2 font-display text-2xl font-semibold">
-              {event.title}
-            </p>
-            {event.withWhom ? (
-              <p className="mt-2 flex items-center gap-2 elder-body text-muted-foreground">
-                <Users className="size-5 shrink-0" aria-hidden="true" />
-                {event.withWhom}
+        {isLoading ? (
+          <p className="elder-body text-muted-foreground">Loading...</p>
+        ) : !events || events.length === 0 ? (
+          <p className="elder-body text-muted-foreground">
+            {getString(language, 'calendar_no_events_message')}
+          </p>
+        ) : (
+          events.map((event) => (
+            <div
+              key={event.id}
+              className="rounded-3xl border-2 border-border bg-card p-6 shadow-soft"
+            >
+              <p className="text-base font-semibold uppercase tracking-wide text-primary">
+                {formatEventTime(event.startTime)}
               </p>
-            ) : null}
-          </div>
-        ))}
+              <p className="mt-2 font-display text-2xl font-semibold">
+                {event.title}
+              </p>
+              {event.notes ? (
+                <p className="mt-2 flex items-center gap-2 elder-body text-muted-foreground">
+                  <NotebookText className="size-5 shrink-0" aria-hidden="true" />
+                  {event.notes}
+                </p>
+              ) : null}
+            </div>
+          ))
+        )}
 
         {isAdding ? (
           <form
             className="rounded-3xl border-2 border-border bg-card p-6 shadow-soft"
             onSubmit={(event) => {
               event.preventDefault()
-              if (!title.trim() || !day.trim() || !time.trim()) return
-              addEvent({
-                title: title.trim(),
-                day: day.trim(),
-                time: time.trim(),
-                withWhom: withWhom.trim() || undefined,
-              })
-              resetForm()
+              if (!profile || !title.trim() || !date || !time) return
+              addEvent.mutate(
+                {
+                  elderId: profile.elderId,
+                  title: title.trim(),
+                  startTime: `${date}T${time}`,
+                  notes: notes.trim(),
+                },
+                {
+                  onSuccess: () => {
+                    toast('Added', {
+                      description: `${title.trim()} was added to the calendar.`,
+                    })
+                    resetForm()
+                  },
+                  onError: () =>
+                    toast("Couldn't add that event", {
+                      description: 'Please try again.',
+                    }),
+                },
+              )
             }}
           >
             <label
@@ -87,16 +120,16 @@ function Calendar() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <label
-                  htmlFor="event-day"
+                  htmlFor="event-date"
                   className="block text-lg font-semibold"
                 >
                   {getString(language, 'calendar_add_day_label')}
                 </label>
                 <input
-                  id="event-day"
-                  value={day}
-                  onChange={(event) => setDay(event.target.value)}
-                  placeholder="Sunday"
+                  id="event-date"
+                  type="date"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
                   className="mt-2 min-h-14 w-full rounded-2xl border border-border bg-background px-4 text-lg outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -109,29 +142,31 @@ function Calendar() {
                 </label>
                 <input
                   id="event-time"
+                  type="time"
                   value={time}
                   onChange={(event) => setTime(event.target.value)}
-                  placeholder="12:30 PM"
                   className="mt-2 min-h-14 w-full rounded-2xl border border-border bg-background px-4 text-lg outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
             </div>
             <label
-              htmlFor="event-with-whom"
+              htmlFor="event-notes"
               className="mt-4 block text-lg font-semibold"
             >
               {getString(language, 'calendar_add_with_whom_label')}
             </label>
             <input
-              id="event-with-whom"
-              value={withWhom}
-              onChange={(event) => setWithWhom(event.target.value)}
+              id="event-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
               className="mt-2 min-h-14 w-full rounded-2xl border border-border bg-background px-4 text-lg outline-none focus:ring-2 focus:ring-ring"
             />
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="submit"
-                disabled={!title.trim() || !day.trim() || !time.trim()}
+                disabled={
+                  !title.trim() || !date || !time || addEvent.isPending
+                }
                 className="inline-flex min-h-14 items-center rounded-2xl bg-primary px-6 text-lg font-semibold text-primary-foreground shadow-soft transition-transform hover:scale-[1.02] disabled:opacity-50"
               >
                 {getString(language, 'calendar_add_save_button')}

@@ -82,6 +82,7 @@ export type StringKey =
   | 'calendar_add_with_whom_label'
   | 'calendar_add_save_button'
   | 'calendar_add_cancel_button'
+  | 'calendar_no_events_message'
 
 const strings: Record<Language, Record<StringKey, string>> = {
   English: {
@@ -162,9 +163,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     calendar_add_title_label: 'What is it?',
     calendar_add_day_label: 'Which day?',
     calendar_add_time_label: 'What time?',
-    calendar_add_with_whom_label: 'With whom? (optional)',
+    calendar_add_with_whom_label: 'With whom / notes (optional)',
     calendar_add_save_button: 'Save',
     calendar_add_cancel_button: 'Cancel',
+    calendar_no_events_message: 'No upcoming events yet.',
   },
   'Mandarin Chinese': {
     nav_home: '首页',
@@ -237,9 +239,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     calendar_add_title_label: '是什么事？',
     calendar_add_day_label: '哪一天？',
     calendar_add_time_label: '几点？',
-    calendar_add_with_whom_label: '和谁一起？（可选）',
+    calendar_add_with_whom_label: '和谁一起／备注（可选）',
     calendar_add_save_button: '保存',
     calendar_add_cancel_button: '取消',
+    calendar_no_events_message: '暂无即将到来的日程。',
   },
   Malay: {
     nav_home: 'Laman Utama',
@@ -324,9 +327,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     calendar_add_title_label: 'Apakah acaranya?',
     calendar_add_day_label: 'Hari apa?',
     calendar_add_time_label: 'Pukul berapa?',
-    calendar_add_with_whom_label: 'Dengan siapa? (pilihan)',
+    calendar_add_with_whom_label: 'Dengan siapa / nota (pilihan)',
     calendar_add_save_button: 'Simpan',
     calendar_add_cancel_button: 'Batal',
+    calendar_no_events_message: 'Belum ada acara akan datang.',
   },
   Tamil: {
     nav_home: 'முகப்பு',
@@ -413,9 +417,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     calendar_add_title_label: 'என்ன நிகழ்ச்சி?',
     calendar_add_day_label: 'எந்த நாள்?',
     calendar_add_time_label: 'என்ன நேரம்?',
-    calendar_add_with_whom_label: 'யாருடன்? (விருப்பத்திற்குரியது)',
+    calendar_add_with_whom_label: 'யாருடன் / குறிப்புகள் (விருப்பத்திற்குரியது)',
     calendar_add_save_button: 'சேமி',
     calendar_add_cancel_button: 'ரத்து செய்',
+    calendar_no_events_message: 'இன்னும் வரவிருக்கும் நிகழ்வுகள் இல்லை.',
   },
 }
 

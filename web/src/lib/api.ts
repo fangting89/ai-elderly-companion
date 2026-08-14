@@ -256,3 +256,38 @@ export async function getActivities(): Promise<Activity[]> {
   const response = await fetch(`${API_BASE_URL}/api/activities`)
   return toJson<Activity[]>(response)
 }
+
+export type CalendarEvent = {
+  id: string
+  title: string
+  eventType: 'appointment' | 'medication' | 'other'
+  startTime: string
+  notes: string | null
+}
+
+export async function getCalendarEvents(
+  elderId: string,
+): Promise<CalendarEvent[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/calendar?${new URLSearchParams({ elder_id: elderId })}`,
+  )
+  return toJson<CalendarEvent[]>(response)
+}
+
+export async function addCalendarEvent(params: {
+  elderId: string
+  title: string
+  startTime: string
+  notes: string
+}): Promise<void> {
+  const body = new FormData()
+  body.set('elder_id', params.elderId)
+  body.set('title', params.title)
+  body.set('start_time', params.startTime)
+  body.set('notes', params.notes)
+  const response = await fetch(`${API_BASE_URL}/api/calendar`, {
+    method: 'POST',
+    body,
+  })
+  await toJson<{ status: string }>(response)
+}

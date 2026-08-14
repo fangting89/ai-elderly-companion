@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   acceptFamilyNudge,
+  addCalendarEvent,
   addMedication,
   deletePhoto,
   getActivities,
+  getCalendarEvents,
   getCheckInOpener,
   getDemoProfile,
   getLatestFamilyNote,
@@ -154,5 +156,23 @@ export function useActivities() {
     queryKey: ['activities'],
     queryFn: getActivities,
     staleTime: Infinity,
+  })
+}
+
+export function useCalendarEvents(elderId: string | undefined) {
+  return useQuery({
+    queryKey: ['calendar', elderId],
+    queryFn: () => getCalendarEvents(elderId!),
+    enabled: Boolean(elderId),
+  })
+}
+
+export function useAddCalendarEvent(elderId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: addCalendarEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar', elderId] })
+    },
   })
 }
