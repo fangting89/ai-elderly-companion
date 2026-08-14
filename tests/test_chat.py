@@ -73,9 +73,9 @@ def _mock_claude(monkeypatch, sentiment: str, reply_text: str = "A reply.") -> d
 
 
 def test_unbounded_never_offers_continuation(elder_id, monkeypatch):
-    # Streamlit's Chat page calls send_message without bounded=True -- even
-    # on a distressed message, can_continue should stay False and the
-    # closing instruction should never be added to the prompt.
+    # send_message defaults to bounded=False -- even on a distressed
+    # message, can_continue should stay False and the closing instruction
+    # should never be added to the prompt.
     captured = _mock_claude(monkeypatch, sentiment="distress")
     result = chat.send_message(elder_id, "I feel very alone")
     assert result.can_continue is False

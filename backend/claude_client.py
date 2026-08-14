@@ -1,16 +1,20 @@
 """Shared Anthropic client and a forced-tool-use helper for structured output."""
 
 import logging
+import os
 import time
+from functools import cache
 from typing import Any
 
 import anthropic
-import streamlit as st
+from dotenv import load_dotenv
 
 CHAT_MODEL = "claude-sonnet-5"
 TAG_MODEL = "claude-haiku-4-5-20251001"
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 def _log_call(model: str, kind: str, started_at: float, response: anthropic.types.Message) -> None:
@@ -37,14 +41,14 @@ def _log_call(model: str, kind: str, started_at: float, response: anthropic.type
     )
 
 
-@st.cache_resource
+@cache
 def get_client() -> anthropic.Anthropic:
-    """Return a cached Anthropic client built from Streamlit secrets.
+    """Return a cached Anthropic client built from the ANTHROPIC_API_KEY env var.
 
     Returns:
         anthropic.Anthropic: an authenticated Anthropic client instance.
     """
-    return anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
 def call_structured(

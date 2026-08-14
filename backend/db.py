@@ -10,10 +10,9 @@ import sqlite3
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import cache
 from pathlib import Path
 from typing import Literal
-
-import streamlit as st
 
 DB_PATH = Path(__file__).parent.parent / "data" / "app.db"
 SCHEMA_PATH = Path(__file__).parent.parent / "sql" / "schema.sql"
@@ -30,7 +29,7 @@ class Profile:
     preferred_language: SupportedLanguage
 
 
-@st.cache_resource
+@cache
 def get_connection() -> sqlite3.Connection:
     """Return a cached SQLite connection, schema-initialized and demo-seeded.
 

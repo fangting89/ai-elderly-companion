@@ -83,38 +83,26 @@ what's worth knowing, adherence, and mood.
 
 ## Architecture
 
-Two frontends share one Python backend and one SQLite database, so
-product logic is never duplicated:
+A React frontend talks to a thin FastAPI layer over one Python backend and
+one SQLite database:
 
 - **Backend**: Python, SQLite, and the Anthropic Claude API (a faster model
   for classification/tagging decisions, a stronger model for conversational
   replies and explanations). Safety-relevant decisions (scam risk, escalation
   triggers) are computed deterministically from model-extracted signals
   rather than left to a single generative judgment call.
-- **Streamlit app**: the original reference implementation, a role selector
-  switching between a seeded elder and family view.
-- **React app**: a more polished frontend (TanStack Start, React 19,
-  Tailwind), backed by a thin FastAPI layer that reuses the same backend
-  directly.
+- **React app**: TanStack Start, React 19, Tailwind, backed by a thin
+  FastAPI layer that reuses the backend directly.
 
 See `docs/ARCHITECTURE.md` for the full database schema and key
 architectural decisions.
 
 ## Getting Started
 
-### Streamlit app
-
-```bash
-uv sync
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # fill in ANTHROPIC_API_KEY
-uv run streamlit run app.py
-```
-
-### React app
-
 ```bash
 # Terminal 1: API
 uv sync
+cp .env.example .env   # fill in ANTHROPIC_API_KEY
 uv run uvicorn api.main:app --port 8000
 
 # Terminal 2: frontend
@@ -125,9 +113,9 @@ bun run dev
 
 Then open `http://localhost:3000`.
 
-Both apps read from the same local SQLite database and seed a demo elder
-and family profile automatically on first run, with no account or manual
-setup required.
+The app reads from a local SQLite database and seeds a demo elder and
+family profile automatically on first run, with no account or manual setup
+required.
 
 ## Testing & Evaluation
 
@@ -146,7 +134,6 @@ there isn't.
 
 ```
 ai-elderly-companion/
-├── app.py, pages/       # Streamlit app
 ├── api/, web/           # FastAPI + React app
 ├── backend/             # Shared business logic (both frontends)
 ├── eval/, notebooks/    # Evaluation sets and prompt exploration

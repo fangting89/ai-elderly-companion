@@ -1,9 +1,0 @@
-# Warm, elderly-friendly palette: high contrast against the cream background,
-# no pure white or pure black. Kept in sync with the React app's styles.css.
-[theme]
-base = "light"
-primaryColor = "#C8763E"
-backgroundColor = "#FFFBF5"
-secondaryBackgroundColor = "#F2E9DD"
-textColor = "#3A2E26"
-font = "sans serif"

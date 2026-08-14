@@ -2,27 +2,21 @@
 
 ## Overview
 
-Two frontends share one Python backend and one SQLite database, so product
-logic is never duplicated:
+A React frontend talks to a thin FastAPI layer over one Python backend and
+one SQLite database:
 
 - **Backend**: Python, SQLite, and the Anthropic Claude API (a faster model
   for classification/tagging decisions, a stronger model for conversational
   replies and explanations). Safety-relevant decisions (scam risk, escalation
   triggers) are computed deterministically from model-extracted signals,
   rather than left to a single generative judgment call.
-- **Streamlit app**: the original reference implementation, a role selector
-  switching between a seeded elder and family view.
-- **React app**: a more polished frontend (TanStack Start, React 19,
-  Tailwind), backed by a thin FastAPI layer that reuses the same backend
-  directly.
+- **React app**: TanStack Start, React 19, Tailwind, backed by a thin
+  FastAPI layer that reuses the backend directly.
 
 ## Repository Structure
 
 ```
 ai-elderly-companion/
-├── app.py                     # Streamlit entry point, role selector + router
-├── pages/                     # Streamlit pages (Home, Chat, Point & Ask,
-│                               # Medication, Calendar, Family Dashboard, Settings)
 ├── backend/
 │   ├── db.py                  # sqlite connection, schema init, demo seed
 │   ├── claude_client.py       # Claude API wrapper: forced tool-use, prose calls
@@ -176,16 +170,14 @@ Mandarin Chinese, Malay, and Tamil, Singapore's four official languages.
 
 **Access control is plain application-level filtering**, not
 database-level policy: every query filters explicitly by `elder_id` or
-`role`. This assumption held cleanly while a single trusted Streamlit
-process was the only thing touching the database; the FastAPI layer added
-later touches the same database over real HTTP with no authentication of
-its own. See `SECURITY.md` for the current state of this gap.
+`role`. The FastAPI layer touches the database over real HTTP with no
+authentication of its own. See `SECURITY.md` for the current state of this
+gap.
 
-**Both apps share one environment configuration.** `api/main.py` reads
-`ANTHROPIC_API_KEY` via the same Streamlit secrets file
-(`.streamlit/secrets.toml`) the Streamlit app uses, rather than a separate
-`.env`, since the underlying Claude client is shared code.
+**Configuration comes from a `.env` file.** `api/main.py` reads
+`ANTHROPIC_API_KEY` via `python-dotenv`, loaded once in
+`backend/claude_client.py`.
 
 ## Getting Started
 
-See the root `README.md` for setup and run instructions for both apps.
+See the root `README.md` for setup and run instructions.

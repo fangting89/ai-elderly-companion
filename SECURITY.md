@@ -32,9 +32,6 @@ to be run locally for demonstration and evaluation purposes.
   identifier. This is acceptable for local, single-user demo use only. Do
   not expose this API beyond `localhost` without adding real
   authentication first.
-- The Streamlit app's own access control is likewise plain application-level
-  filtering, not database-level policy enforcement, on the assumption that
-  the Streamlit process itself is the only thing touching the database.
 - No encryption at rest is applied to the local SQLite database or uploaded
   files.
 

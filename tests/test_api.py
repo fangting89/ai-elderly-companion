@@ -2,10 +2,10 @@
 in-memory sqlite connection (not the real data/app.db) so nothing here
 touches real data.
 
-backend.db.get_connection is decorated with Streamlit's @st.cache_resource,
-which isn't reliable to clear-and-recreate across many rapid test calls in
-bare (non-Streamlit-runtime) mode -- state leaked between tests when this
-file tried that approach. Instead, every module that does
+backend.db.get_connection is decorated with functools.cache, which isn't
+reliable to clear-and-recreate across many rapid test calls -- state
+leaked between tests when this file tried that approach. Instead, every
+module that does
 `from backend.db import get_connection` gets its own bound copy patched
 directly to the same shared per-test connection, matching the pattern
 already used in test_family_notes.py/test_escalation.py.

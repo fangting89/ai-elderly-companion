@@ -295,8 +295,8 @@ def send_message(elder_id: str, user_text: str, *, bounded: bool = False) -> Cha
             the first -- unlocked only when the first reply reads as low
             mood/distress, and always closed (no further follow-up offered)
             after that. Used by the React Check-In flow, which has nowhere
-            to show more than two replies; the Streamlit Chat page leaves
-            this False and keeps its existing open-ended thread.
+            to show more than two replies; defaults to False for an
+            open-ended thread.
 
     Returns:
         ChatReply: the companion's reply (in the elder's preferred language)
