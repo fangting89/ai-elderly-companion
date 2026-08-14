@@ -14,8 +14,15 @@ const SPEECH_LANG: Record<Language, string> = {
 
 export function useSpeechSynthesis() {
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const isSupported =
-    typeof window !== 'undefined' && 'speechSynthesis' in window
+  // Starts false on both server and the client's first render, then flips
+  // after mount if actually supported -- computing this synchronously
+  // during render would make the server and the client's first render
+  // disagree (window doesn't exist on the server), which React treats as
+  // a hydration mismatch.
+  const [isSupported, setIsSupported] = useState(false)
+  useEffect(() => {
+    setIsSupported('speechSynthesis' in window)
+  }, [])
 
   const speak = useCallback(
     (text: string, language: Language) => {
@@ -70,7 +77,13 @@ function getSpeechRecognitionConstructor():
 export function useSpeechRecognition() {
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
-  const isSupported = getSpeechRecognitionConstructor() !== undefined
+  // See useSpeechSynthesis above -- must start false and only flip after
+  // mount, or the server/client render disagree and React throws a
+  // hydration mismatch.
+  const [isSupported, setIsSupported] = useState(false)
+  useEffect(() => {
+    setIsSupported(getSpeechRecognitionConstructor() !== undefined)
+  }, [])
 
   const start = useCallback(
     (language: Language, onResult: (text: string) => void) => {
