@@ -8,8 +8,8 @@ import type { Language } from '@/lib/api'
 //
 // Elder-facing pages only (Home, Point & Ask, Medication, Calendar) --
 // family-facing pages (Dashboard, Send a note, Memory bank, Family
-// Medication, Settings) stay English, matching the Streamlit convention:
-// family already operates the admin flow in English regardless.
+// Medication, Settings) stay English: family already operates the admin
+// flow in English regardless.
 //
 // Machine-drafted translations for Mandarin Chinese, Malay, and Tamil; a
 // native-speaker review is recommended before any real-world use.
@@ -21,6 +21,9 @@ export type StringKey =
   | 'nav_calendar'
   | 'home_family_view_link'
   | 'home_greeting'
+  | 'home_greeting_morning'
+  | 'home_greeting_afternoon'
+  | 'home_greeting_evening'
   | 'home_happening_title'
   | 'home_happening_body'
   | 'home_happening_button'
@@ -88,7 +91,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     nav_medication: 'Medication',
     nav_calendar: 'Calendar',
     home_family_view_link: 'Family view',
-    home_greeting: 'Good morning',
+    home_greeting: 'Hello',
+    home_greeting_morning: 'Good morning',
+    home_greeting_afternoon: 'Good afternoon',
+    home_greeting_evening: 'Good evening',
     home_happening_title: 'Happening near you',
     home_happening_body:
       'Morning qigong at the pavilion downstairs, tomorrow at 7.30am. Mrs Lim from the fourth floor goes every week.',
@@ -169,7 +175,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     nav_medication: '药物',
     nav_calendar: '日历',
     home_family_view_link: '家人视图',
-    home_greeting: '早上好',
+    home_greeting: '你好',
+    home_greeting_morning: '早上好',
+    home_greeting_afternoon: '下午好',
+    home_greeting_evening: '晚上好',
     home_happening_title: '附近活动',
     home_happening_body:
       '明天早上7点30分，楼下凉亭有晨间气功。四楼的林太太每周都去。',
@@ -243,7 +252,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     nav_medication: 'Ubat',
     nav_calendar: 'Kalendar',
     home_family_view_link: 'Paparan keluarga',
-    home_greeting: 'Selamat pagi',
+    home_greeting: 'Helo',
+    home_greeting_morning: 'Selamat pagi',
+    home_greeting_afternoon: 'Selamat tengah hari',
+    home_greeting_evening: 'Selamat petang',
     home_happening_title: 'Berlaku berdekatan anda',
     home_happening_body:
       'Qigong pagi di pavilion bawah, esok pukul 7.30 pagi. Puan Lim dari tingkat empat pergi setiap minggu.',
@@ -329,7 +341,10 @@ const strings: Record<Language, Record<StringKey, string>> = {
     nav_medication: 'மருந்து',
     nav_calendar: 'நாட்காட்டி',
     home_family_view_link: 'குடும்ப பார்வை',
-    home_greeting: 'காலை வணக்கம்',
+    home_greeting: 'வணக்கம்',
+    home_greeting_morning: 'காலை வணக்கம்',
+    home_greeting_afternoon: 'மதிய வணக்கம்',
+    home_greeting_evening: 'மாலை வணக்கம்',
     home_happening_title: 'உங்கள் அருகில் நடக்கிறது',
     home_happening_body:
       'நாளை காலை 7.30 மணிக்கு கீழே உள்ள பெவிலியனில் காலை சிகோங். நான்காம் மாடி லிம் அம்மையார் ஒவ்வொரு வாரமும் செல்கிறார்.',

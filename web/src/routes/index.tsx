@@ -5,6 +5,7 @@ import { ElderShell } from '@/components/ElderShell'
 import { PhotoDeck } from '@/components/PhotoDeck'
 import { FamilyGreeting } from '@/components/FamilyGreeting'
 import { CheckInPrompt } from '@/components/CheckInPrompt'
+import { useGreetingKey } from '@/components/LiveClock'
 import { useDemoProfile } from '@/lib/hooks'
 import { getString } from '@/lib/strings'
 
@@ -25,6 +26,7 @@ export const Route = createFileRoute('/')({
 function ElderHome() {
   const { data: profile } = useDemoProfile()
   const language = profile?.preferredLanguage ?? 'English'
+  const greetingKey = useGreetingKey()
 
   const actions = [
     {
@@ -49,7 +51,7 @@ function ElderHome() {
 
   return (
     <ElderShell
-      title={`${getString(language, 'home_greeting')}, ${profile?.elderName ?? 'Mdm Tan'}`}
+      title={`${getString(language, greetingKey)}, ${profile?.elderName ?? 'Mdm Tan'}`}
       showBack={false}
       weatherBackground="full"
     >

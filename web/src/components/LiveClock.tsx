@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { StringKey } from '@/lib/strings'
 
 /** A ticking clock, updated every 30s -- no need for per-second precision
  * on elder-facing UI, and it keeps re-renders cheap.
@@ -35,11 +36,24 @@ export function LiveClock({ className }: { className?: string }) {
   )
 }
 
-export function useCurrentTime() {
-  const [now, setNow] = useState(() => new Date())
+function greetingKeyForHour(hour: number): StringKey {
+  if (hour < 12) return 'home_greeting_morning'
+  if (hour < 18) return 'home_greeting_afternoon'
+  return 'home_greeting_evening'
+}
+
+/** A time-of-day greeting key ("Good morning"/"afternoon"/"evening").
+ *
+ * Starts at the neutral 'home_greeting' fallback, matching what the server
+ * renders (it has no reliable local time for the elder), then swaps in the
+ * real time-of-day greeting once mounted client-side -- same reasoning as
+ * LiveClock above. */
+export function useGreetingKey(): StringKey {
+  const [key, setKey] = useState<StringKey>('home_greeting')
+
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000)
-    return () => window.clearInterval(timer)
+    setKey(greetingKeyForHour(new Date().getHours()))
   }, [])
-  return now
+
+  return key
 }
