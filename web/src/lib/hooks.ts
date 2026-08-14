@@ -3,6 +3,7 @@ import {
   acceptFamilyNudge,
   addCalendarEvent,
   addMedication,
+  addMemoryFact,
   deletePhoto,
   getActivities,
   getCalendarEvents,
@@ -10,6 +11,7 @@ import {
   getDemoProfile,
   getLatestFamilyNote,
   getMedications,
+  getMemoryFacts,
   getPhotos,
   getTodaysDoses,
   markDoseTaken,
@@ -173,6 +175,24 @@ export function useAddCalendarEvent(elderId: string | undefined) {
     mutationFn: addCalendarEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar', elderId] })
+    },
+  })
+}
+
+export function useMemoryFacts(elderId: string | undefined) {
+  return useQuery({
+    queryKey: ['memory-facts', elderId],
+    queryFn: () => getMemoryFacts(elderId!),
+    enabled: Boolean(elderId),
+  })
+}
+
+export function useAddMemoryFact(elderId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: addMemoryFact,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memory-facts', elderId] })
     },
   })
 }

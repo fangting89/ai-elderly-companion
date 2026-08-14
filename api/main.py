@@ -419,3 +419,49 @@ def add_calendar_event(
         raise HTTPException(status_code=422, detail="Invalid start_time.") from exc
     calendar.add_event(elder_id, title.strip(), parsed_start, notes=notes.strip() or None)
     return {"status": "ok"}
+
+
+@app.get("/api/memory-bank/facts")
+def list_memory_facts(elder_id: str) -> list[dict]:
+    """List an elder's memory bank facts, most recent first.
+
+    Args:
+        elder_id: the elder profile to list facts for.
+
+    Returns:
+        list[dict]: {"id", "text", "addedByName"} for each fact.
+    """
+    facts = [e for e in memory_bank.list_entries(elder_id) if e.entry_type == "fact"]
+    results = []
+    for fact in facts:
+        added_by_profile = get_profile(fact.added_by)
+        results.append(
+            {
+                "id": fact.id,
+                "text": fact.content_text,
+                "addedByName": added_by_profile.display_name if added_by_profile else "Family",
+            }
+        )
+    return results
+
+
+@app.post("/api/memory-bank/facts")
+def add_memory_fact(
+    elder_id: str = Form(...),
+    added_by: str = Form(...),
+    text: str = Form(...),
+) -> dict:
+    """Add a memory bank fact for an elder.
+
+    Args:
+        elder_id: the elder profile this fact is about.
+        added_by: the family profile id adding it.
+        text: the fact itself.
+
+    Returns:
+        dict: {"status": "ok"}.
+    """
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Fact text can't be empty.")
+    memory_bank.add_fact(elder_id, added_by, text.strip())
+    return {"status": "ok"}

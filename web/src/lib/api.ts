@@ -291,3 +291,32 @@ export async function addCalendarEvent(params: {
   })
   await toJson<{ status: string }>(response)
 }
+
+export type MemoryFact = {
+  id: string
+  text: string
+  addedByName: string
+}
+
+export async function getMemoryFacts(elderId: string): Promise<MemoryFact[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/memory-bank/facts?${new URLSearchParams({ elder_id: elderId })}`,
+  )
+  return toJson<MemoryFact[]>(response)
+}
+
+export async function addMemoryFact(params: {
+  elderId: string
+  addedBy: string
+  text: string
+}): Promise<void> {
+  const body = new FormData()
+  body.set('elder_id', params.elderId)
+  body.set('added_by', params.addedBy)
+  body.set('text', params.text)
+  const response = await fetch(`${API_BASE_URL}/api/memory-bank/facts`, {
+    method: 'POST',
+    body,
+  })
+  await toJson<{ status: string }>(response)
+}
