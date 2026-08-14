@@ -8,6 +8,7 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useDemoProfile } from '@/lib/hooks'
 
 const nav = [
   { to: '/family', label: 'Overview', icon: LayoutGrid, exact: true },
@@ -26,6 +27,8 @@ export function FamilyShell({
   intro: string
   children: ReactNode
 }) {
+  const { data: profile } = useDemoProfile()
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-8 lg:flex-row lg:gap-10 lg:py-12">
@@ -35,7 +38,7 @@ export function FamilyShell({
               You Little Companion
             </p>
             <p className="text-sm text-muted-foreground">
-              Family view · Wei Ling
+              Family view · {profile?.familyName ?? '...'}
             </p>
           </div>
           <nav className="flex flex-wrap gap-2 lg:flex-col">
