@@ -1,21 +1,27 @@
 """API for the React frontend.
 
 Reuses backend/*.py directly -- no business logic is duplicated here. No
-auth/session system, matching the Streamlit app's zero-auth "View as"
-simplicity: elder_id/added_by are passed explicitly per request.
+auth/session system: elder_id/added_by are passed explicitly per request.
 
-CAUTION: unlike Streamlit (a single trusted process), this is a real
-network-facing HTTP API -- any client that can reach it can pass any
-elder_id and read/write that elder's data. Fine for local demo use
-(localhost only); would need real authentication/authorization before any
-deployment reachable beyond your own machine.
+CAUTION: this is a real network-facing HTTP API -- any client that can
+reach it can pass any elder_id and read/write that elder's data. Fine for
+local demo use (localhost only); would need real authentication/
+authorization before any deployment reachable beyond your own machine.
 """
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend import chat, companion_line, family_notes, medications, memory_bank, point_and_ask
+from backend import (
+    activities,
+    chat,
+    companion_line,
+    family_notes,
+    medications,
+    memory_bank,
+    point_and_ask,
+)
 from backend.db import get_profile, get_profile_by_role, update_preferred_language
 from backend.memory_bank import UPLOADS_DIR
 
@@ -37,9 +43,9 @@ app.mount("/data/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 def demo_profile() -> dict:
     """Return the seeded demo elder/family profile ids and current language.
 
-    No auth/login exists in this app (matching the Streamlit "View as"
-    simplicity) -- the frontend uses this to know who "the elder" and "the
-    family member" are without hardcoding a UUID that changes on reseed.
+    No auth/login exists in this app -- the frontend uses this to know who
+    "the elder" and "the family member" are without hardcoding a UUID that
+    changes on reseed.
 
     Returns:
         dict: {"elderId", "elderName", "familyId", "familyName", "preferredLanguage"}.
@@ -345,3 +351,16 @@ def check_in_reply(elder_id: str = Form(...), text: str = Form(...)) -> dict:
         raise HTTPException(status_code=422, detail="Message can't be empty.")
     result = chat.send_message(elder_id, text.strip(), bounded=True)
     return {"reply": result.text, "canContinue": result.can_continue}
+
+
+@app.get("/api/activities")
+def nearby_activities() -> list[dict]:
+    """Return a handful of example nearby community activities.
+
+    Returns:
+        list[dict]: {"icon", "title", "schedule"} for each activity.
+    """
+    return [
+        {"icon": a.icon, "title": a.title, "schedule": a.schedule}
+        for a in activities.get_nearby_activities()
+    ]

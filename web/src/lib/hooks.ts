@@ -3,6 +3,7 @@ import {
   acceptFamilyNudge,
   addMedication,
   deletePhoto,
+  getActivities,
   getCheckInOpener,
   getDemoProfile,
   getLatestFamilyNote,
@@ -145,5 +146,13 @@ export function useDeletePhoto(elderId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['photos', elderId] })
     },
+  })
+}
+
+export function useActivities() {
+  return useQuery({
+    queryKey: ['activities'],
+    queryFn: getActivities,
+    staleTime: Infinity,
   })
 }

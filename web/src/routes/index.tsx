@@ -6,7 +6,7 @@ import { PhotoDeck } from '@/components/PhotoDeck'
 import { FamilyGreeting } from '@/components/FamilyGreeting'
 import { CheckInPrompt } from '@/components/CheckInPrompt'
 import { useGreetingKey } from '@/components/LiveClock'
-import { useDemoProfile } from '@/lib/hooks'
+import { useActivities, useDemoProfile } from '@/lib/hooks'
 import { getString } from '@/lib/strings'
 
 export const Route = createFileRoute('/')({
@@ -27,6 +27,7 @@ function ElderHome() {
   const { data: profile } = useDemoProfile()
   const language = profile?.preferredLanguage ?? 'English'
   const greetingKey = useGreetingKey()
+  const { data: activities } = useActivities()
 
   const actions = [
     {
@@ -93,9 +94,15 @@ function ElderHome() {
             <h2 className="font-display text-2xl font-semibold">
               {getString(language, 'home_happening_title')}
             </h2>
-            <p className="mt-2 elder-body">
-              {getString(language, 'home_happening_body')}
-            </p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {activities?.map((activity) => (
+                <li key={activity.title} className="elder-body">
+                  {activity.icon} <span className="font-semibold">{activity.title}</span>
+                  {' — '}
+                  {activity.schedule}
+                </li>
+              ))}
+            </ul>
             <button
               type="button"
               onClick={() =>

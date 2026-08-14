@@ -245,3 +245,14 @@ export async function deletePhoto(id: string): Promise<void> {
   })
   await toJson<{ status: string }>(response)
 }
+
+export type Activity = {
+  icon: string
+  title: string
+  schedule: string
+}
+
+export async function getActivities(): Promise<Activity[]> {
+  const response = await fetch(`${API_BASE_URL}/api/activities`)
+  return toJson<Activity[]>(response)
+}

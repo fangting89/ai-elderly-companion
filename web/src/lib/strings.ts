@@ -25,7 +25,6 @@ export type StringKey =
   | 'home_greeting_afternoon'
   | 'home_greeting_evening'
   | 'home_happening_title'
-  | 'home_happening_body'
   | 'home_happening_button'
   | 'home_happening_reminder_toast_title'
   | 'home_happening_reminder_toast_body'
@@ -96,8 +95,6 @@ const strings: Record<Language, Record<StringKey, string>> = {
     home_greeting_afternoon: 'Good afternoon',
     home_greeting_evening: 'Good evening',
     home_happening_title: 'Happening near you',
-    home_happening_body:
-      'Morning qigong at the pavilion downstairs, tomorrow at 7.30am. Mrs Lim from the fourth floor goes every week.',
     home_happening_button: 'Remind me tomorrow morning',
     home_happening_reminder_toast_title: 'Got it',
     home_happening_reminder_toast_body:
@@ -180,8 +177,6 @@ const strings: Record<Language, Record<StringKey, string>> = {
     home_greeting_afternoon: '下午好',
     home_greeting_evening: '晚上好',
     home_happening_title: '附近活动',
-    home_happening_body:
-      '明天早上7点30分，楼下凉亭有晨间气功。四楼的林太太每周都去。',
     home_happening_button: '明天早上提醒我',
     home_happening_reminder_toast_title: '好的',
     home_happening_reminder_toast_body: '我明天早上会再次提醒您。',
@@ -257,8 +252,6 @@ const strings: Record<Language, Record<StringKey, string>> = {
     home_greeting_afternoon: 'Selamat tengah hari',
     home_greeting_evening: 'Selamat petang',
     home_happening_title: 'Berlaku berdekatan anda',
-    home_happening_body:
-      'Qigong pagi di pavilion bawah, esok pukul 7.30 pagi. Puan Lim dari tingkat empat pergi setiap minggu.',
     home_happening_button: 'Ingatkan saya esok pagi',
     home_happening_reminder_toast_title: 'Baiklah',
     home_happening_reminder_toast_body:
@@ -346,8 +339,6 @@ const strings: Record<Language, Record<StringKey, string>> = {
     home_greeting_afternoon: 'மதிய வணக்கம்',
     home_greeting_evening: 'மாலை வணக்கம்',
     home_happening_title: 'உங்கள் அருகில் நடக்கிறது',
-    home_happening_body:
-      'நாளை காலை 7.30 மணிக்கு கீழே உள்ள பெவிலியனில் காலை சிகோங். நான்காம் மாடி லிம் அம்மையார் ஒவ்வொரு வாரமும் செல்கிறார்.',
     home_happening_button: 'நாளை காலை எனக்கு நினைவூட்டுங்கள்',
     home_happening_reminder_toast_title: 'சரி',
     home_happening_reminder_toast_body:

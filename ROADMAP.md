@@ -43,17 +43,34 @@ gaps, planned extensions, and things deliberately left out of scope for now.
   Also: Safari/iOS lack `SpeechRecognition` support, worth testing given
   iPads are a plausible device for this demographic.
 - **A UI/font polish pass** for elderly-friendly readability across the
-  Streamlit app, and a rehearsed demo script to go with it.
+  React app, and a rehearsed demo script to go with it.
 
 ## New features / natural extensions
 
 - **Surface the "connections facilitated" stat** on the dashboard once it's
   wired to real data. The underlying data (`companion_events`) is already
   collected, just not displayed anywhere yet.
-- **Replace the two static placeholders** (Activities Near You, the
-  professional-support resource card) with a real feed: even a small
-  curated list of real Singapore eldercare/befriending services would beat
-  the current hardcoded stand-in.
+- **Give "Activities Near You" a real, joinable events feed.** The card is
+  now wired to a backend endpoint (`/api/activities`), but the underlying
+  list in `backend/activities.py` is still a static placeholder, not real
+  events. Investigated feasibility: there's no public API for the
+  hyperlocal layer this app's examples show (void-deck Tai Chi, an RC's
+  mahjong afternoon) -- that layer has no digital footprint anywhere,
+  API or otherwise, so no amount of engineering surfaces it. The one
+  credible real, free, no-auth source found is the National Library
+  Board's Events API, which includes senior/active-ageing programmes
+  across library branches islandwide -- real, joinable, but
+  library-centric rather than neighbourhood-centric. A "near you" feed of
+  any kind also needs a prerequisite that doesn't exist yet: the app has
+  no elder location/postal code field at all (`web/src/lib/weather.ts`
+  hardcodes one fixed Singapore-wide coordinate for the whole app).
+  Realistic path: a hybrid of NLB's real feed (needs the location field
+  added) for the national/library layer, plus a family-added-activities
+  flow (same pattern as calendar events) for the hyperlocal layer no API
+  will ever reach.
+- **Replace the professional-support resource card** with a real feed:
+  even a small curated list of real Singapore eldercare/befriending
+  services would beat the current hardcoded stand-in.
 - **Wire the email-alert stub to a real provider** (Resend/SendGrid).
   Already documented as "a drop-in swap" in `backend/escalation.py`, never
   actually swapped in; currently just a logged `print()`.
