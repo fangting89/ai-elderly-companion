@@ -1,5 +1,9 @@
 # Architecture
 
+See the root `README.md` for the product pitch: pillars, key features,
+escalation model, ethical stance, and language support. This file is the
+technical reference: schema and architectural decisions.
+
 ## Overview
 
 A React frontend talks to a thin FastAPI layer over one Python backend and
@@ -167,6 +171,7 @@ in the elder's preferred language via a parameterized system prompt.
 Fixed, safety-critical content (warnings, UI chrome) comes from a single
 reviewed strings dictionary, one entry per supported language: English,
 Mandarin Chinese, Malay, and Tamil, Singapore's four official languages.
+See the README for the full language-support model.
 
 **Access control is plain application-level filtering**, not
 database-level policy: every query filters explicitly by `elder_id` or

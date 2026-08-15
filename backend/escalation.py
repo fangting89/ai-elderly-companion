@@ -2,8 +2,8 @@
 
 check_and_alert() is the single entry point every feature module calls when
 something might warrant a family alert. It owns the rule evaluation (the
-Escalation Rules table in docs/DESIGN_PRINCIPLES.md) so callers just report
-what happened; whether that rises to an alert is decided here.
+Escalation Model table in the README) so callers just report what
+happened; whether that rises to an alert is decided here.
 
 Built incrementally: chat-sentiment, scam-detection, missed-medication, and
 repeated-question-frequency rules all exist now.

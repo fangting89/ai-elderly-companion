@@ -2,9 +2,9 @@
 
 ## Scope
 
-This is a personal portfolio project, not a production system, and is not
-currently deployed anywhere reachable beyond a local machine. It's intended
-to be run locally for demonstration and evaluation purposes.
+This is a personal project, not a production system, and is not currently
+deployed anywhere reachable beyond a local machine. It's intended to be run
+locally for demonstration and evaluation purposes.
 
 ## Data handling
 
