@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from backend.db import get_connection
 
 
+# One row from the family_notes table -- a note shown on the elder's Home screen
 @dataclass
 class FamilyNote:
     id: str
@@ -20,6 +21,7 @@ class FamilyNote:
     created_at: str
 
 
+# Saves a new note from a family member for the elder to see
 def add_note(elder_id: str, sender_name: str, relation: str | None, text: str) -> None:
     """Add a family note for an elder to see on their Home screen.
 
@@ -38,6 +40,7 @@ def add_note(elder_id: str, sender_name: str, relation: str | None, text: str) -
     conn.commit()
 
 
+# Fetches the single most recent note, for the Home screen card
 def get_latest_note(elder_id: str) -> FamilyNote | None:
     """Return the most recent family note for an elder, if any.
 

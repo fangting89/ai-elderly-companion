@@ -66,6 +66,7 @@ StringKey = Literal[
     "point_and_ask_example_caption",
 ]
 
+# The actual translations: one full set of strings per supported language
 _STRINGS: dict[str, dict[StringKey, str]] = {
     "English": {
         "scam_warning_title": "This looks like it could be a scam.",
@@ -330,6 +331,7 @@ _STRINGS: dict[str, dict[StringKey, str]] = {
 }
 
 
+# Looks up one fixed string in the given language, falling back to English
 def get_string(language: str, key: StringKey) -> str:
     """Look up a fixed string for a language.
 

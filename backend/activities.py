@@ -8,6 +8,7 @@ an integration this project doesn't have a real data source for.
 from dataclasses import dataclass
 
 
+# One activity shown on the "Activities Near You" card
 @dataclass
 class Activity:
     icon: str
@@ -15,6 +16,7 @@ class Activity:
     schedule: str
 
 
+# Returns a fixed list of example activities (not a real live feed yet)
 def get_nearby_activities() -> list[Activity]:
     """Return a handful of example community activities.
 

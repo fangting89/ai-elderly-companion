@@ -1,4 +1,8 @@
-"""Calendar: CRUD for appointments/events."""
+"""Calendar: CRUD for appointments/events.
+
+Events are added through the family-facing Add Event form. See
+ROADMAP.md for a planned chat/voice-based way to add events.
+"""
 
 import uuid
 from dataclasses import dataclass
@@ -8,9 +12,13 @@ from typing import Literal
 from backend.db import get_connection
 
 EventType = Literal["appointment", "medication", "other"]
+# SQLite has no native datetime type -- stored as text in this exact
+# "YYYY-MM-DD HH:MM" format so plain string comparison (used by the
+# "upcoming" filter below) sorts the same as chronological order.
 _START_TIME_FORMAT = "%Y-%m-%d %H:%M"
 
 
+# One row from the calendar_events table -- an appointment or reminder
 @dataclass
 class CalendarEvent:
     id: str
@@ -21,6 +29,7 @@ class CalendarEvent:
     notes: str | None
 
 
+# Adds one event -- called from the Family Calendar form and from chat.py's auto-add
 def add_event(
     elder_id: str,
     title: str,
@@ -53,6 +62,7 @@ def add_event(
     conn.commit()
 
 
+# Returns events that haven't happened yet, soonest first, for the Calendar page
 def list_upcoming_events(elder_id: str) -> list[CalendarEvent]:
     """List an elder's upcoming (not-yet-past) calendar events, soonest first.
 

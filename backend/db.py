@@ -14,12 +14,14 @@ from functools import cache
 from pathlib import Path
 from typing import Literal
 
-DB_PATH = Path(__file__).parent.parent / "data" / "app.db"
-SCHEMA_PATH = Path(__file__).parent.parent / "sql" / "schema.sql"
+DB_PATH = Path(__file__).parent.parent / "data" / "app.db"  # the sqlite file on disk
+SCHEMA_PATH = Path(__file__).parent.parent / "sql" / "schema.sql"  # table definitions
 
+# The 4 languages the app supports
 SupportedLanguage = Literal["English", "Mandarin Chinese", "Malay", "Tamil"]
 
 
+# One row from the profiles table -- either an elder or a family member
 @dataclass
 class Profile:
     id: str
@@ -33,19 +35,32 @@ class Profile:
 def get_connection() -> sqlite3.Connection:
     """Return a cached SQLite connection, schema-initialized and demo-seeded.
 
+    Cached so the whole app shares one connection instead of reopening the
+    file per request -- fine here since sqlite3's own locking serializes
+    writes anyway, and this stays a single-process app.
+
     Returns:
         sqlite3.Connection: a connection with row access by column name.
     """
+    # 1. Make sure the data/ folder exists, then open (or create) the db file
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # FastAPI can serve requests on different threads; sqlite3 connections
+    # are thread-confined by default and would raise on the second thread
+    # to touch this one without this flag.
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row  # lets us read columns by name, e.g. row["id"]
+
+    # 2. Create any tables that don't exist yet
     conn.executescript(SCHEMA_PATH.read_text())
     conn.commit()
+
+    # 3. Patch up tables that existed before a schema change, and seed demo data
     _migrate(conn)
     _seed_demo_profiles(conn)
     return conn
 
 
+# Adds columns/tables that a schema update introduced, for a db file created before that update
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns to already-existing tables that predate them.
 
@@ -87,12 +102,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+# Fills a fresh/empty database with one demo elder, one family member, and sample data
 def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
     """Insert a demo elder and linked family profile if none exist yet."""
+    # Only seed once -- skip if any profile already exists
     existing = conn.execute("select count(*) from profiles").fetchone()[0]
     if existing > 0:
         return
 
+    # 1. Create the elder and the family member linked to them
     elder_id = str(uuid.uuid4())
     family_id = str(uuid.uuid4())
     conn.execute(
@@ -104,6 +122,8 @@ def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
         "insert into profiles (id, role, display_name, elder_id) values (?, 'family', ?, ?)",
         (family_id, "Mei Lin", elder_id),
     )
+
+    # 2. Give the elder a couple of sample medications
     for name, dosage, times in (
         ("Metformin", "500mg", ["08:00", "20:00"]),
         ("Amlodipine", "5mg", ["08:00"]),
@@ -114,6 +134,7 @@ def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
             (str(uuid.uuid4()), elder_id, name, dosage, json.dumps(times)),
         )
 
+    # 3. Add a couple of upcoming appointments
     for title, days_out, hour_minute in (
         ("Dentist Appointment", 6, "15:00"),
         ("Optician Appointment", 5, "11:00"),
@@ -125,8 +146,9 @@ def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
             (str(uuid.uuid4()), elder_id, title, start_time),
         )
 
-    # Shows the calendar isn't purely medical/admin -- placeholder dates
-    # relative to seed time, standing in for real lunar-calendar lookups.
+    # 4. Add a couple of cultural events too, so the calendar isn't purely
+    # medical/admin -- placeholder dates relative to seed time, standing in
+    # for real lunar-calendar lookups.
     for title, days_out in (("Mid-Autumn Festival", 45), ("Deepavali", 120)):
         start_time = (datetime.now() + timedelta(days=days_out)).strftime("%Y-%m-%d %H:%M")
         conn.execute(
@@ -137,6 +159,7 @@ def _seed_demo_profiles(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+# Converts one raw sqlite row into a Profile object
 def _row_to_profile(row: sqlite3.Row) -> Profile:
     return Profile(
         id=row["id"],
@@ -147,6 +170,7 @@ def _row_to_profile(row: sqlite3.Row) -> Profile:
     )
 
 
+# Finds the (single, seeded) demo elder or family profile
 def get_profile_by_role(role: Literal["elder", "family"]) -> Profile | None:
     """Fetch the demo profile matching a role.
 
@@ -164,6 +188,7 @@ def get_profile_by_role(role: Literal["elder", "family"]) -> Profile | None:
     return _row_to_profile(row) if row is not None else None
 
 
+# Looks up any profile (elder or family) by its id
 def get_profile(profile_id: str) -> Profile | None:
     """Fetch a profile by id.
 
@@ -177,6 +202,7 @@ def get_profile(profile_id: str) -> Profile | None:
     return _row_to_profile(row) if row is not None else None
 
 
+# Saves a new language choice for an elder, e.g. from the Family Settings page
 def update_preferred_language(elder_id: str, language: SupportedLanguage) -> None:
     """Set an elder's preferred language.
 
