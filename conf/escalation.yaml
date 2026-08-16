@@ -1,0 +1,14 @@
+# Thresholds for backend/escalation.py's rules: when a reported event
+# actually rises to a family alert.
+
+# Missed-medication pattern: alert only once this many misses of the same
+# medication have accumulated, not on the very first miss.
+missed_medication_pattern_threshold: 2
+
+# Repeated-question rule: alert only if this week's count is at least this
+# many and higher than last week's.
+repeated_question_weekly_threshold: 2
+
+# Low-mood rule: alert only after this many consecutive days of low or
+# distress sentiment. Distress alerts immediately regardless of this value.
+low_mood_streak_days: 3

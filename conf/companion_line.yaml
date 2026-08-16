@@ -1,0 +1,13 @@
+# Timing for backend/companion_line.py's daily-opener priority mechanism.
+
+# A family-contact nudge is only offered once family hasn't come up in chat
+# for at least this many days.
+family_nudge_silence_days: 5
+
+# Once shown, a family-contact nudge will not be shown again for this many
+# days, even if the silence condition above is still true.
+family_nudge_cooldown_days: 2
+
+# Once shown, a reminiscence prompt will not be shown again for this many
+# days.
+reminiscence_cooldown_days: 3

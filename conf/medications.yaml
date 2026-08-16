@@ -1,0 +1,3 @@
+# Minutes after the scheduled time before a dose counts as missed, rather
+# than still pending.
+grace_minutes: 30

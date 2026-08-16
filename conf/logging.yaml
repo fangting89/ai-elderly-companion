@@ -1,0 +1,6 @@
+# Python logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+level: INFO
+
+# Optional file to also write logs to, relative to the repo root. Leave
+# empty to log to the console only.
+log_file: ""

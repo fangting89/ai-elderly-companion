@@ -1,0 +1,17 @@
+# Anthropic's recommended max image edge length, for vision cost/quality
+# balance. Photos larger than this are downscaled before analysis.
+max_image_dimension: 1568
+
+# Risk-scoring formula (see backend/point_and_ask.py's score_risk()).
+# money_request and secrecy_request are the core diagnostic signals; a
+# document with neither is always "low" risk. Otherwise:
+#   score = core_signals * core_signal_weight + urgency + authority_impersonation
+
+# Weight applied to the core signal count (money_request + secrecy_request).
+core_signal_weight: 2
+
+# score at or above this value is "high" risk.
+high_risk_cutoff: 5
+
+# score at or above this value (and below high_risk_cutoff) is "medium" risk.
+medium_risk_cutoff: 3

@@ -1,0 +1,16 @@
+# Model and call defaults for every Claude API call in the app.
+
+# Cheaper/faster model, used for classification and tagging calls.
+tag_model: claude-haiku-4-5-20251001
+
+# Stronger model, used for anything the elder reads as prose.
+chat_model: claude-sonnet-5
+
+# Temperature for free-form prose replies (chat replies, explanations).
+# Structured/classification calls always run at temperature 0, which is not
+# configurable here since it is a safety property (deterministic decisions),
+# not a style choice.
+prose_temperature: 1.0
+
+# Default max tokens for both call shapes.
+max_tokens: 1024

@@ -1,0 +1,7 @@
+# Max number of stored facts fed into the chat prompt as context.
+context_facts_limit: 10
+
+# Chance that a reminiscence prompt also nudges the elder to share the
+# memory with the family member it involves, rather than only discussing
+# it with the companion.
+reminiscence_nudge_probability: 0.5

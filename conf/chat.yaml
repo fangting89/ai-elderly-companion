@@ -1,0 +1,7 @@
+# How many past messages are sent to Claude as conversation history on each
+# chat turn.
+recent_messages_limit: 20
+
+# The bounded Check-In flow (used by the React Check-In page) allows at
+# most this many elder replies per day.
+bounded_checkin_max_replies: 2
