@@ -7,12 +7,17 @@ at the point each trigger occurs; this module only reads what's already there.
 from datetime import date, datetime, timedelta
 
 from backend.claude_client import CHAT_MODEL, call_prose
+from backend.config import get_settings
 from backend.db import get_connection
 
+_prompts = get_settings().prompts
+
+# Maps sentiment words to numbers and back, so mood can be averaged then relabeled
 _SENTIMENT_SCORE = {"distress": 0, "low": 1, "neutral": 2, "positive": 3}
 _SENTIMENT_LABEL = {0: "Distress", 1: "Low", 2: "Neutral", 3: "Positive"}
 
 
+# Counts taken/missed/pending doses per day, for the adherence bar chart
 def get_adherence_by_day(elder_id: str, days: int = 7) -> list[dict]:
     """Return daily medication dose status counts for the last N days.
 
@@ -38,6 +43,7 @@ def get_adherence_by_day(elder_id: str, days: int = 7) -> list[dict]:
     return [{"date": row["day"], "status": row["status"], "count": row["count"]} for row in rows]
 
 
+# Averages each day's chat sentiment into one score, for the mood line chart
 def get_sentiment_trend(elder_id: str, days: int = 14) -> list[dict]:
     """Return the average daily chat sentiment score for the last N days.
 
@@ -69,6 +75,7 @@ def get_sentiment_trend(elder_id: str, days: int = 14) -> list[dict]:
     ]
 
 
+# Averages this week's mood vs. last week's, for a "better/worse" stat tile
 def get_mood_weekly_comparison(elder_id: str) -> tuple[float | None, float | None]:
     """Return this week's vs. last week's average mood score.
 
@@ -88,6 +95,7 @@ def get_mood_weekly_comparison(elder_id: str) -> tuple[float | None, float | Non
     this_week_start = now - timedelta(days=7)
     last_week_start = now - timedelta(days=14)
 
+    # Averages the sentiment scores for messages in one time window
     def _avg_sentiment(start: datetime, end: datetime | None) -> float | None:
         query = (
             "select sentiment from chat_messages where elder_id = ? and sender = 'elder' "
@@ -105,6 +113,7 @@ def get_mood_weekly_comparison(elder_id: str) -> tuple[float | None, float | Non
     return _avg_sentiment(this_week_start, None), _avg_sentiment(last_week_start, this_week_start)
 
 
+# Converts a 0-3 average mood score into a plain-language word
 def mood_score_to_label(score: float) -> str:
     """Map an average mood score to a plain-language label.
 
@@ -117,6 +126,7 @@ def mood_score_to_label(score: float) -> str:
     return _SENTIMENT_LABEL[round(min(max(score, 0), 3))]
 
 
+# Fetches recent alerts for the dashboard's alerts list -- read-only, doesn't create any
 def get_alerts(elder_id: str, limit: int = 20) -> list[dict]:
     """Return recent alerts for an elder, most recent first.
 
@@ -139,6 +149,7 @@ def get_alerts(elder_id: str, limit: int = 20) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+# Marks an alert as seen, called when family taps "Acknowledge"
 def acknowledge_alert(alert_id: str) -> None:
     """Mark an alert as acknowledged.
 
@@ -150,6 +161,7 @@ def acknowledge_alert(alert_id: str) -> None:
     conn.commit()
 
 
+# Re-exports escalation.py's weekly-count function for the dashboard's frequency panel
 def get_repeated_question_weekly_counts(elder_id: str) -> tuple[int, int]:
     """Return this week's vs. last week's repeated-question count.
 
@@ -167,6 +179,7 @@ def get_repeated_question_weekly_counts(elder_id: str) -> tuple[int, int]:
     return _get_counts(elder_id)
 
 
+# Checks if the elder has chatted at all this week, to tell "zero" apart from "no data"
 def has_chat_activity_this_week(elder_id: str) -> bool:
     """Check whether the elder has sent any chat message in the last 7 days.
 
@@ -193,6 +206,7 @@ def has_chat_activity_this_week(elder_id: str) -> bool:
     return row is not None
 
 
+# Finds medications with just 1 missed dose -- a near-miss that didn't trigger an alert
 def get_non_escalated_misses(elder_id: str) -> list[dict]:
     """Return medications with exactly one missed dose (a near-miss that
     didn't rise to an alert), for the dashboard's restraint framing --
@@ -219,6 +233,7 @@ def get_non_escalated_misses(elder_id: str) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+# Counts family-contact nudges the elder actually acted on, in the last N days
 def get_connections_facilitated_count(elder_id: str, days: int = 30) -> int:
     """Count family-contact nudges the elder acted on, in the last N days.
 
@@ -245,6 +260,7 @@ def get_connections_facilitated_count(elder_id: str, days: int = 30) -> int:
     )
 
 
+# Gathers this week's stats and asks Claude to write a plain-language summary for family
 def get_weekly_summary(elder_id: str) -> str:
     """Generate a warm, plain-language weekly summary for family.
 
@@ -259,6 +275,7 @@ def get_weekly_summary(elder_id: str) -> str:
         str: a short paragraph synthesizing adherence, mood, and a couple
             of things they said this week, in the companion's own voice.
     """
+    # 1. Gather this week's raw data: adherence, mood, and recent messages
     adherence = get_adherence_by_day(elder_id, days=7)
     sentiment = get_sentiment_trend(elder_id, days=7)
     recent = (
@@ -271,18 +288,14 @@ def get_weekly_summary(elder_id: str) -> str:
         .fetchall()
     )
 
+    # 2. Boil that down into a few plain numbers/text Claude can summarize
     taken = sum(row["count"] for row in adherence if row["status"] == "taken")
     missed = sum(row["count"] for row in adherence if row["status"] == "missed")
     avg_mood = sum(row["score"] for row in sentiment) / len(sentiment) if sentiment else None
     messages_text = "\n".join(f"- {row['content']}" for row in recent) or "No messages this week."
 
-    system = (
-        "You write a short, warm, plain-language weekly summary for the family of "
-        "an elderly person, in the voice of their AI companion. Use only the data "
-        "given -- never invent specifics. One short paragraph: reassuring but "
-        "honest about medication adherence and general mood, and one specific "
-        "nice thing they said this week if the messages below include one."
-    )
+    # 3. Ask Claude to turn those numbers into a warm paragraph
+    system = _prompts.weekly_summary_base
     context = (
         f"Doses taken this week: {taken}. Doses missed: {missed}. "
         f"Average mood score (0=distress, 3=positive): "

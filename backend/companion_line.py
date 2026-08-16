@@ -11,16 +11,23 @@ happens to bring it up in conversation.
 import uuid
 from datetime import datetime
 
+from backend.config import get_settings
 from backend.db import get_connection
 from backend.memory_bank import generate_reminiscence_prompt, get_context_facts
 from backend.strings import get_string
 
-FAMILY_NUDGE_SILENCE_DAYS = 5
-FAMILY_NUDGE_COOLDOWN_DAYS = 2
-REMINISCENCE_COOLDOWN_DAYS = 3
+_companion_line_settings = get_settings().companion_line
+
+# SILENCE_DAYS gates *whether* a nudge is warranted (family hasn't come up
+# in conversation recently); COOLDOWN_DAYS gates how often it's allowed to
+# actually be shown again, so a persistent silence doesn't nudge every day.
+FAMILY_NUDGE_SILENCE_DAYS = _companion_line_settings.family_nudge_silence_days
+FAMILY_NUDGE_COOLDOWN_DAYS = _companion_line_settings.family_nudge_cooldown_days
+REMINISCENCE_COOLDOWN_DAYS = _companion_line_settings.reminiscence_cooldown_days
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+# Records that something happened today (e.g. a nudge was shown), for cooldown tracking
 def _log_event(elder_id: str, event_type: str) -> None:
     conn = get_connection()
     conn.execute(
@@ -30,6 +37,7 @@ def _log_event(elder_id: str, event_type: str) -> None:
     conn.commit()
 
 
+# Looks up how many days ago a given event type last happened for this elder
 def _days_since_event(elder_id: str, event_type: str) -> int | None:
     row = (
         get_connection()
@@ -46,6 +54,7 @@ def _days_since_event(elder_id: str, event_type: str) -> int | None:
     return (datetime.now() - last).days
 
 
+# Looks up the linked family member's display name for this elder
 def family_display_name(elder_id: str) -> str | None:
     row = (
         get_connection()
@@ -57,6 +66,7 @@ def family_display_name(elder_id: str) -> str | None:
     return row["display_name"] if row else None
 
 
+# Looks up how many days since the elder last mentioned this family member by name in chat
 def _days_since_family_mentioned(elder_id: str, family_name: str) -> int:
     row = (
         get_connection()
@@ -73,6 +83,7 @@ def _days_since_family_mentioned(elder_id: str, family_name: str) -> int:
     return (datetime.now() - last).days
 
 
+# The conductor: picks nudge, reminiscence, or plain check-in, in that priority order
 def decide_todays_opener(elder_id: str, language: str) -> tuple[str, str] | None:
     """Decide today's companion opener, if the elder hasn't chatted yet today.
 
@@ -89,6 +100,7 @@ def decide_todays_opener(elder_id: str, language: str) -> tuple[str, str] | None
             "family_nudge", "reminiscence", or "daily_checkin" -- or None if
             the elder has already chatted today (nothing to open with).
     """
+    # 1. If the elder already chatted today, there's nothing to open with
     already_chatted = (
         get_connection()
         .execute(
@@ -101,6 +113,7 @@ def decide_todays_opener(elder_id: str, language: str) -> tuple[str, str] | None
     if already_chatted is not None:
         return None
 
+    # 2. First choice: a family-contact nudge, if family's been quiet and not on cooldown
     family_name = family_display_name(elder_id)
     nudge_cooldown = _days_since_event(elder_id, "family_nudge_shown")
     if (
@@ -112,6 +125,7 @@ def decide_todays_opener(elder_id: str, language: str) -> tuple[str, str] | None
         template = get_string(language, "family_nudge_line")
         return template.format(name=family_name), "family_nudge"
 
+    # 3. Second choice: a reminiscence prompt, if there are memories and it's not on cooldown
     reminiscence_cooldown = _days_since_event(elder_id, "reminiscence_shown")
     if get_context_facts(elder_id) and (
         reminiscence_cooldown is None or reminiscence_cooldown >= REMINISCENCE_COOLDOWN_DAYS
@@ -121,9 +135,11 @@ def decide_todays_opener(elder_id: str, language: str) -> tuple[str, str] | None
             _log_event(elder_id, "reminiscence_shown")
             return opener, "reminiscence"
 
+    # 4. Fallback: the plain daily check-in
     return get_string(language, "daily_checkin"), "daily_checkin"
 
 
+# Looks back at what kind of opener was already shown today, for the UI to match its behavior
 def get_todays_line_type(elder_id: str) -> str:
     """Determine what kind of opener was shown today, for UI purposes (e.g.
     whether Home should show the "yes, remind me" quick action).
@@ -153,6 +169,7 @@ def get_todays_line_type(elder_id: str) -> str:
     return "daily_checkin"
 
 
+# Checks if the elder already said "yes" to today's family-contact nudge
 def family_nudge_accepted_today(elder_id: str) -> bool:
     """Check whether the elder already accepted today's family-contact nudge.
 
@@ -179,6 +196,7 @@ def family_nudge_accepted_today(elder_id: str) -> bool:
     return row is not None
 
 
+# Logs that the elder accepted the nudge, called when they tap "yes, remind me"
 def log_family_nudge_accepted(elder_id: str) -> None:
     """Record that the elder acted on a family-contact nudge.
 

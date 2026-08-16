@@ -18,25 +18,24 @@ from typing import Literal
 from PIL import Image
 
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
+from backend.config import get_settings
 from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
 
-Classification = Literal["explain", "scam", "unclear"]
+Classification = Literal["explain", "scam", "unclear"]  # the 3 possible outcomes
 RiskLevel = Literal["low", "medium", "high"]
 
-MAX_IMAGE_DIMENSION = 1568  # Anthropic's recommended max edge for vision cost/quality balance
-UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"
+_point_and_ask_settings = get_settings().point_and_ask
+_prompts = get_settings().prompts
 
-CLASSIFY_SYSTEM_PROMPT = (
-    "You analyze a photo of a letter, message, or document sent to an elderly "
-    "person. Extract only what is visible; never invent details. Judge each "
-    "signal independently: a separate scoring system decides overall risk, "
-    "not you. In content_summary, never restate a full NRIC number, full home "
-    "address, or other sensitive personal identifier even if visible in the "
-    "photo. Describe it generically instead (e.g. 'asks the reader to "
-    "confirm their NRIC')."
-)
+# Anthropic's recommended max edge for vision cost/quality balance
+MAX_IMAGE_DIMENSION = _point_and_ask_settings.max_image_dimension
+UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"  # where uploaded photos are saved
 
+# System prompt for the AI's first look at the photo: extract facts only, don't judge scam risk
+CLASSIFY_SYSTEM_PROMPT = _prompts.classify_system
+
+# Forces the AI to answer via a fixed checklist instead of free text
 CLASSIFY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -83,6 +82,7 @@ CLASSIFY_SCHEMA = {
 }
 
 
+# Holds the AI's checklist answers from classify_image()
 @dataclass
 class ClassifyResult:
     image_quality: Literal["clear", "blurry", "unreadable"]
@@ -93,6 +93,7 @@ class ClassifyResult:
     content_summary: str
 
 
+# The final answer sent back to the frontend to render
 @dataclass
 class PointAndAskResult:
     """explanation is generated directly in the elder's preferred language --
@@ -104,6 +105,7 @@ class PointAndAskResult:
     explanation: str | None
 
 
+# Shrinks a photo if it's bigger than the vision API's recommended size
 def _resize_if_needed(image_bytes: bytes) -> tuple[bytes, str]:
     """Downscale an image if it exceeds the recommended max dimension.
 
@@ -124,6 +126,7 @@ def _resize_if_needed(image_bytes: bytes) -> tuple[bytes, str]:
     return buffer.getvalue(), media_type
 
 
+# Packages a photo into the shape Anthropic's API expects
 def _image_block(image_bytes: bytes, media_type: str) -> dict:
     return {
         "type": "image",
@@ -135,6 +138,7 @@ def _image_block(image_bytes: bytes, media_type: str) -> dict:
     }
 
 
+# Turns the AI's checklist answers into a low/medium/high score, with plain math
 def score_risk(result: ClassifyResult) -> RiskLevel:
     """Deterministically score scam risk from extracted signals.
 
@@ -151,18 +155,21 @@ def score_risk(result: ClassifyResult) -> RiskLevel:
     Returns:
         RiskLevel: "low", "medium", or "high".
     """
+    # money/secrecy are the real tells; no core signal means low risk regardless of the rest
     core_signals = sum([result.money_request, result.secrecy_request])
     if core_signals == 0:
         return "low"
+    # urgency/authority only escalate severity once a core signal is already present
     aggravating_signals = sum([result.urgency, result.authority_impersonation])
-    total = core_signals * 2 + aggravating_signals
-    if total >= 5:
+    total = core_signals * _point_and_ask_settings.core_signal_weight + aggravating_signals
+    if total >= _point_and_ask_settings.high_risk_cutoff:
         return "high"
-    if total >= 3:
+    if total >= _point_and_ask_settings.medium_risk_cutoff:
         return "medium"
     return "low"
 
 
+# Picks which of the 3 screens (explain/scam/unclear) the elder sees
 def decide_branch(result: ClassifyResult, risk_level: RiskLevel) -> Classification:
     """Deterministically route to the explain, scam, or unclear branch.
 
@@ -174,12 +181,13 @@ def decide_branch(result: ClassifyResult, risk_level: RiskLevel) -> Classificati
         Classification: which branch the UI should render.
     """
     if result.image_quality == "unreadable":
-        return "unclear"
+        return "unclear"  # can't read it -> ask them to retake the photo
     if risk_level in ("medium", "high"):
-        return "scam"
-    return "explain"
+        return "scam"  # risky -> show the warning screen
+    return "explain"  # otherwise -> show the plain-language explanation
 
 
+# AI call #1: fills in the checklist, doesn't judge scam risk itself
 def classify_image(image_bytes: bytes, media_type: str) -> ClassifyResult:
     """Run the vision classify step on an uploaded photo.
 
@@ -209,6 +217,7 @@ def classify_image(image_bytes: bytes, media_type: str) -> ClassifyResult:
     return ClassifyResult(**tags)
 
 
+# AI call #2: only for safe documents, writes the explanation directly in target_language
 def explain_image(image_bytes: bytes, media_type: str, target_language: str) -> str:
     """Generate a plain-language explanation of a document photo, in the given language.
 
@@ -222,14 +231,7 @@ def explain_image(image_bytes: bytes, media_type: str, target_language: str) -> 
         str: the explanation, written directly in target_language.
     """
     language_clause = "" if target_language == "English" else f" Write it in {target_language}."
-    system = (
-        "You explain a document photo to an elderly person in simple, plain "
-        f"language.{language_clause} Never give legal or financial advice; "
-        "suggest they involve family for anything involving money or deadlines. "
-        "Never restate a full NRIC number, full home address, or other sensitive "
-        "personal identifier even if visible in the photo. Refer to it generically "
-        "instead (e.g. 'your NRIC number')."
-    )
+    system = _prompts.explain_image_base.format(language_clause=language_clause)
     return call_prose(
         model=CHAT_MODEL,
         system=system,
@@ -245,6 +247,7 @@ def explain_image(image_bytes: bytes, media_type: str, target_language: str) -> 
     )
 
 
+# Writes the photo to disk under data/uploads/ and returns its path
 def _save_upload(image_bytes: bytes, media_type: str) -> str:
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     ext = media_type.split("/")[-1]
@@ -253,6 +256,7 @@ def _save_upload(image_bytes: bytes, media_type: str) -> str:
     return f"data/uploads/{filename}"
 
 
+# Saves the whole result as one row in the documents table
 def _persist(
     elder_id: str,
     image_path: str,
@@ -287,6 +291,7 @@ def _persist(
     conn.commit()
 
 
+# The conductor: runs the whole pipeline top to bottom for one uploaded photo
 def process_photo(elder_id: str, raw_image_bytes: bytes) -> PointAndAskResult:
     """Run the full Point & Ask pipeline on an uploaded photo and persist the result.
 
@@ -297,22 +302,28 @@ def process_photo(elder_id: str, raw_image_bytes: bytes) -> PointAndAskResult:
     Returns:
         PointAndAskResult: the branch, risk, and content to show in the UI.
     """
+    # 1. Find out what language to reply in
     profile = get_profile(elder_id)
     target_language = profile.preferred_language if profile else "English"
 
+    # 2. Shrink the photo if needed
     image_bytes, media_type = _resize_if_needed(raw_image_bytes)
 
+    # 3. AI extracts signals, then plain code scores risk and picks the outcome
     result = classify_image(image_bytes, media_type)
     risk_level = score_risk(result)
     classification = decide_branch(result, risk_level)
 
+    # 4. Only generate an explanation if the document is safe
     explanation = None
     if classification == "explain":
         explanation = explain_image(image_bytes, media_type, target_language)
 
+    # 5. Save the photo file and the result row
     image_path = _save_upload(image_bytes, media_type)
     _persist(elder_id, image_path, classification, risk_level, result, explanation)
 
+    # 6. Flag family if it's a scam
     if classification == "scam":
         check_and_alert(
             elder_id,

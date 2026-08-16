@@ -25,6 +25,7 @@ from backend import (
     memory_bank,
     point_and_ask,
 )
+from backend.config import get_settings
 from backend.db import get_profile, get_profile_by_role, update_preferred_language
 from backend.memory_bank import UPLOADS_DIR
 
@@ -32,9 +33,13 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="You Little Companion API")
 
+# Locked to the configured frontend origin (not "*") and only the HTTP
+# methods actually used anywhere in this file -- a narrower CORS policy
+# than "allow everything" costs nothing here and is the right default to
+# start from even before real auth exists.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[get_settings().api.cors_origin],
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )

@@ -12,14 +12,19 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Literal
 
+from backend.config import get_settings
 from backend.db import get_connection
 from backend.escalation import check_and_alert
 
 DoseStatus = Literal["pending", "taken", "missed"]
-GRACE_MINUTES = 30
+# A dose isn't "missed" the instant its scheduled time passes -- a short
+# grace window avoids flagging someone as late for taking a pill 5 minutes
+# after breakfast.
+GRACE_MINUTES = get_settings().medications.grace_minutes
 _SCHEDULED_FOR_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+# One row from the medications table -- a drug the elder takes, and when
 @dataclass
 class Medication:
     id: str
@@ -29,6 +34,7 @@ class Medication:
     times_per_day: list[str]
 
 
+# One scheduled dose for today, with its up-to-date status
 @dataclass
 class DoseEntry:
     log_id: str
@@ -39,6 +45,7 @@ class DoseEntry:
     status: DoseStatus
 
 
+# Saves a new medication for an elder -- a family-only action
 def add_medication(elder_id: str, name: str, dosage: str, times_per_day: list[str]) -> None:
     """Add a new medication for an elder.
 
@@ -57,6 +64,7 @@ def add_medication(elder_id: str, name: str, dosage: str, times_per_day: list[st
     conn.commit()
 
 
+# Returns every medication an elder has, regardless of today's dose status
 def list_medications(elder_id: str) -> list[Medication]:
     """List all medications for an elder.
 
@@ -83,6 +91,7 @@ def list_medications(elder_id: str) -> list[Medication]:
     ]
 
 
+# Works out if one dose is taken, missed, or still pending, with plain if/else logic
 def classify_dose_status(
     scheduled_for: datetime, taken_at: datetime | None, now: datetime
 ) -> DoseStatus:
@@ -97,12 +106,13 @@ def classify_dose_status(
         DoseStatus: "taken", "missed", or "pending".
     """
     if taken_at is not None:
-        return "taken"
+        return "taken"  # marked taken -- doesn't matter when
     if now >= scheduled_for + timedelta(minutes=GRACE_MINUTES):
-        return "missed"
-    return "pending"
+        return "missed"  # scheduled time + grace period has passed
+    return "pending"  # not due yet, or still within the grace window
 
 
+# Makes sure every dose an elder should have today already has a row (starting as pending)
 def _ensure_todays_logs(elder_id: str) -> None:
     conn = get_connection()
     today = date.today().isoformat()
@@ -123,6 +133,7 @@ def _ensure_todays_logs(elder_id: str) -> None:
     conn.commit()
 
 
+# The conductor: gets today's doses, refreshing status and flagging newly-missed ones
 def get_todays_doses(elder_id: str) -> list[DoseEntry]:
     """Return today's medication doses with up-to-date status.
 
@@ -137,6 +148,7 @@ def get_todays_doses(elder_id: str) -> list[DoseEntry]:
     Returns:
         list[DoseEntry]: today's doses, ordered by scheduled time.
     """
+    # 1. Make sure today's rows exist, then fetch them all
     _ensure_todays_logs(elder_id)
     conn = get_connection()
     today = date.today().isoformat()
@@ -153,6 +165,7 @@ def get_todays_doses(elder_id: str) -> list[DoseEntry]:
         (elder_id, today),
     ).fetchall()
 
+    # 2. Re-check each dose's status against the current time
     doses = []
     for row in rows:
         scheduled_for = datetime.strptime(row["scheduled_for"], _SCHEDULED_FOR_FORMAT)
@@ -161,6 +174,7 @@ def get_todays_doses(elder_id: str) -> list[DoseEntry]:
         )
         status = classify_dose_status(scheduled_for, taken_at, now)
 
+        # 3. If a dose just flipped to missed, save that and tell escalation.py
         if status == "missed" and row["status"] != "missed":
             conn.execute(
                 "update medication_logs set status = 'missed' where id = ?", (row["log_id"],)
@@ -185,6 +199,7 @@ def get_todays_doses(elder_id: str) -> list[DoseEntry]:
     return doses
 
 
+# Marks one dose as taken right now -- called when the elder taps "I took it"
 def mark_taken(log_id: str) -> None:
     """Mark a dose as taken.
 

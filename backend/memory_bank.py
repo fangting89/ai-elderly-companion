@@ -12,12 +12,17 @@ from pathlib import Path
 from typing import Literal
 
 from backend.claude_client import CHAT_MODEL, call_prose
+from backend.config import get_settings
 from backend.db import get_connection
 
+_memory_settings = get_settings().memory
+_prompts = get_settings().prompts
+
 EntryType = Literal["photo", "fact"]
-UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"
+UPLOADS_DIR = Path(__file__).parent.parent / "data" / "uploads"  # where uploaded photos live
 
 
+# One row from the memory_bank_entries table -- either a text fact or a photo
 @dataclass
 class MemoryBankEntry:
     id: str
@@ -28,6 +33,7 @@ class MemoryBankEntry:
     image_path: str | None
 
 
+# Saves a text fact family shared about the elder
 def add_fact(elder_id: str, added_by: str, content_text: str) -> None:
     """Add a text fact to an elder's memory bank.
 
@@ -45,6 +51,7 @@ def add_fact(elder_id: str, added_by: str, content_text: str) -> None:
     conn.commit()
 
 
+# Saves a photo to disk and its caption to the database
 def add_photo(elder_id: str, added_by: str, image_bytes: bytes, caption: str) -> None:
     """Add a photo (with a caption used as chat context) to an elder's memory bank.
 
@@ -68,6 +75,7 @@ def add_photo(elder_id: str, added_by: str, image_bytes: bytes, caption: str) ->
     conn.commit()
 
 
+# Returns every fact and photo in an elder's memory bank, newest first
 def list_entries(elder_id: str) -> list[MemoryBankEntry]:
     """List all memory bank entries for an elder, most recent first.
 
@@ -98,6 +106,7 @@ def list_entries(elder_id: str) -> list[MemoryBankEntry]:
     ]
 
 
+# Deletes one entry, and its photo file on disk if it has one
 def delete_entry(entry_id: str) -> None:
     """Delete a memory bank entry, removing its photo file from disk if any.
 
@@ -114,7 +123,10 @@ def delete_entry(entry_id: str) -> None:
     conn.commit()
 
 
-def get_context_facts(elder_id: str, limit: int = 10) -> list[str]:
+# Gets recent facts as plain strings, for feeding into the chat prompt as context
+def get_context_facts(
+    elder_id: str, limit: int = _memory_settings.context_facts_limit
+) -> list[str]:
     """Return recent memory bank facts as plain text, for chat context.
 
     Args:
@@ -128,6 +140,7 @@ def get_context_facts(elder_id: str, limit: int = 10) -> list[str]:
     return [entry.content_text for entry in entries if entry.content_text]
 
 
+# Picks a random stored fact and asks Claude to turn it into a warm chat opener
 def generate_reminiscence_prompt(elder_id: str, target_language: str) -> str | None:
     """Generate a warm conversation opener from a random stored memory.
 
@@ -138,6 +151,7 @@ def generate_reminiscence_prompt(elder_id: str, target_language: str) -> str | N
     Returns:
         str | None: the opener text, or None if no memories are stored yet.
     """
+    # 1. Pick a random fact to reminisce about -- bail out if none exist yet
     facts = get_context_facts(elder_id)
     if not facts:
         return None
@@ -151,13 +165,11 @@ def generate_reminiscence_prompt(elder_id: str, target_language: str) -> str | N
         " If this memory involves a specific family member or friend, gently "
         "suggest, in passing, that it might be nice to call or tell them about "
         "this memory -- but only if it fits naturally, don't force it."
-        if random.random() < 0.5
+        if random.random() < _memory_settings.reminiscence_nudge_probability
         else ""
     )
-    system = (
-        "You write a single warm, short conversation-opening message for an "
-        "elderly person, based on one fact their family shared about them. "
-        f"Reference it naturally, like a fond memory.{language_clause}{bridge_clause} Do not "
-        "invent any details beyond what's given."
+    # 2. Ask Claude to write the actual opener message, in the elder's language
+    system = _prompts.reminiscence_base.format(
+        language_clause=language_clause, bridge_clause=bridge_clause
     )
     return call_prose(model=CHAT_MODEL, system=system, messages=[{"role": "user", "content": fact}])

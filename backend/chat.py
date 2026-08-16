@@ -7,15 +7,17 @@ never see an English draft first.
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
 
-from backend.calendar import add_event
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured
 from backend.companion_line import decide_todays_opener, family_display_name
+from backend.config import get_settings
 from backend.db import get_connection, get_profile
 from backend.escalation import check_and_alert
-from backend.memory_bank import generate_reminiscence_prompt, get_context_facts
+from backend.memory_bank import get_context_facts
 from backend.strings import get_string
+
+_chat_settings = get_settings().chat
+_prompts = get_settings().prompts
 
 # Stored in place of the daily check-in's literal text so it always renders
 # in the elder's *current* preferred_language, not whatever language was
@@ -34,6 +36,7 @@ _FAMILY_NUDGE_SENTINEL = "__family_nudge__"
 _LOW_MOOD_SENTIMENTS = {"low", "distress"}
 
 
+# The companion's reply, returned to whoever called send_message()
 @dataclass
 class ChatReply:
     """The companion's reply to a check-in message.
@@ -48,32 +51,10 @@ class ChatReply:
     can_continue: bool
 
 
-def _tag_system_prompt() -> str:
-    today = date.today()
-    # LLMs are unreliable at relative-date arithmetic ("next Tuesday"), so
-    # give it a grounded lookup table instead of asking it to compute one --
-    # same principle as elsewhere: derive what the code depends on
-    # deterministically, don't trust the model to compute it.
-    upcoming_dates = "\n".join(
-        f"{(today + timedelta(days=i)).isoformat()} ({(today + timedelta(days=i)).strftime('%A')})"
-        for i in range(1, 15)
-    )
-    return (
-        f"Today's date is {today.isoformat()} ({today.strftime('%A')}).\n\n"
-        "Upcoming dates for reference (use these exactly; do not calculate dates yourself):\n"
-        f"{upcoming_dates}\n\n"
-        "You classify an elderly person's chat message: its emotional tone, "
-        "whether it repeats a question already asked earlier in this "
-        "conversation, and whether it describes a schedulable event (an "
-        "appointment or reminder with a date) that should be added to their "
-        "calendar. When a day of the week is mentioned (e.g. 'Tuesday' or "
-        "'next Tuesday'), use the SOONEST matching date from the reference "
-        "list above, never a date two weeks away. Never invent facts about "
-        "them; judge only from the text given. The message may be in any "
-        "language -- classify it regardless."
-    )
+# System prompt for the tagging call: classify tone and repetition, nothing else
+TAG_SYSTEM_PROMPT = _prompts.tag_system
 
-
+# The checklist the tagging call must fill in for every elder message
 TAG_SCHEMA = {
     "type": "object",
     "properties": {
@@ -88,45 +69,15 @@ TAG_SCHEMA = {
                 "True if this repeats a question already asked earlier in the conversation."
             ),
         },
-        "mentions_schedulable_event": {
-            "type": "boolean",
-            "description": (
-                "True if the message describes an appointment, reminder, or occasion "
-                "with a date that should be added to the calendar."
-            ),
-        },
-        "event_title": {
-            "type": "string",
-            "description": (
-                "Short event title if mentions_schedulable_event is true, else empty string."
-            ),
-        },
-        "event_date": {
-            "type": "string",
-            "description": (
-                "Event date as YYYY-MM-DD, resolved relative to today's date given above, "
-                "if mentions_schedulable_event is true, else empty string."
-            ),
-        },
-        "event_time": {
-            "type": "string",
-            "description": (
-                "Event time as 24-hour HH:MM if mentioned, '09:00' as a default if not, "
-                "or empty string if mentions_schedulable_event is false."
-            ),
-        },
     },
     "required": [
         "sentiment",
         "repeated_question_flag",
-        "mentions_schedulable_event",
-        "event_title",
-        "event_date",
-        "event_time",
     ],
 }
 
 
+# Assembles the companion's system prompt from language, known facts, and whether to close out
 def build_system_prompt(
     target_language: str,
     memory_facts: list[str] | None = None,
@@ -169,20 +120,11 @@ def build_system_prompt(
         if closing
         else ""
     )
-    return (
-        "You are a warm, patient AI companion for an elderly person."
-        f"{language_clause}{memory_clause}{closing_clause} Keep replies short, kind, and simple. "
-        "Never give medical, legal, or financial advice; suggest they check with family "
-        "or a professional instead. If they mention a letter, message, or "
-        "anything that might be a scam, gently suggest they use the Point & "
-        "Ask feature or ask a family member before acting on it. You are here to "
-        "help with the quiet moments, not to replace real people in their life -- "
-        "when a conversation turns emotional, lonely, or nostalgic, naturally "
-        "encourage them to reach out to a real family member or friend, not just "
-        "you. This applies generally, not only when something is unsafe."
-    )
+    clauses = f"{language_clause}{memory_clause}{closing_clause}"
+    return _prompts.companion_persona.format(clauses=clauses)
 
 
+# Turns a stored message into the text to actually show/send to the model
 def _render_content(elder_id: str, content: str, language: str) -> str:
     """Resolve stored message content for display/LLM context.
 
@@ -199,20 +141,10 @@ def _render_content(elder_id: str, content: str, language: str) -> str:
     return content
 
 
-def _maybe_add_calendar_event(elder_id: str, tags: dict) -> None:
-    """Add a calendar event if the tagging call detected one, ignoring bad dates."""
-    if not tags.get("mentions_schedulable_event"):
-        return
-    try:
-        start_time = datetime.strptime(
-            f"{tags['event_date']} {tags['event_time']}", "%Y-%m-%d %H:%M"
-        )
-    except ValueError:
-        return
-    add_event(elder_id, title=tags["event_title"], start_time=start_time)
-
-
-def _recent_messages(elder_id: str, language: str, limit: int = 20) -> list[dict[str, str]]:
+# Fetches the last N messages for this elder, formatted for the Claude API
+def _recent_messages(
+    elder_id: str, language: str, limit: int = _chat_settings.recent_messages_limit
+) -> list[dict[str, str]]:
     rows = (
         get_connection()
         .execute(
@@ -230,6 +162,7 @@ def _recent_messages(elder_id: str, language: str, limit: int = 20) -> list[dict
     return messages
 
 
+# Saves one chat message (from the elder or the AI) to the database
 def _insert_message(
     elder_id: str,
     sender: str,
@@ -247,31 +180,7 @@ def _insert_message(
     conn.commit()
 
 
-def get_history(elder_id: str, language: str) -> list[dict[str, str]]:
-    """Return the full chat history for display, oldest first.
-
-    Args:
-        elder_id: the elder profile whose history to fetch.
-        language: the elder's *current* preferred_language, used to render
-            the daily check-in (see _render_content).
-
-    Returns:
-        list[dict[str, str]]: messages with 'sender' and 'content' keys.
-    """
-    rows = (
-        get_connection()
-        .execute(
-            "select sender, content from chat_messages where elder_id = ? order by created_at asc",
-            (elder_id,),
-        )
-        .fetchall()
-    )
-    return [
-        {"sender": row["sender"], "content": _render_content(elder_id, row["content"], language)}
-        for row in rows
-    ]
-
-
+# Counts how many messages the elder has sent today, for the bounded Check-In flow
 def _elder_replies_today_count(elder_id: str) -> int:
     row = (
         get_connection()
@@ -302,40 +211,42 @@ def send_message(elder_id: str, user_text: str, *, bounded: bool = False) -> Cha
         ChatReply: the companion's reply (in the elder's preferred language)
             and whether one more reply can still be sent today.
     """
+    # 1. Find the elder's language and build this turn's conversation history
     profile = get_profile(elder_id)
     target_language = profile.preferred_language if profile else "English"
-
     history = _recent_messages(elder_id, target_language)
     turn = [*history, {"role": "user", "content": user_text}]
 
+    # 2. AI call #1: tag the message's sentiment and whether it repeats an earlier question
     tags = call_structured(
         model=TAG_MODEL,
-        system=_tag_system_prompt(),
+        system=TAG_SYSTEM_PROMPT,
         messages=turn,
         tool_name="tag_message",
-        tool_description=(
-            "Classify the sentiment, repetition, and calendar-worthiness of the latest message."
-        ),
+        tool_description="Classify the sentiment and repetition of the latest message.",
         tool_schema=TAG_SCHEMA,
     )
     sentiment = tags["sentiment"]
     repeated = tags["repeated_question_flag"]
 
+    # 3. Save the elder's message, then let escalation.py decide if family needs to know
     _insert_message(
         elder_id, "elder", user_text, sentiment=sentiment, repeated_question_flag=repeated
     )
     check_and_alert(elder_id, "chat_sentiment", {"sentiment": sentiment})
     if repeated:
         check_and_alert(elder_id, "repeated_question", {})
-    _maybe_add_calendar_event(elder_id, tags)
 
+    # 4. Work out if this reply can/must be the last one today (bounded Check-In flow only)
     can_continue = False
     closing = False
     if bounded:
         replies_today = _elder_replies_today_count(elder_id)
-        can_continue = replies_today == 1 and sentiment in _LOW_MOOD_SENTIMENTS
-        closing = replies_today >= 2
+        max_replies = _chat_settings.bounded_checkin_max_replies
+        can_continue = replies_today == max_replies - 1 and sentiment in _LOW_MOOD_SENTIMENTS
+        closing = replies_today >= max_replies
 
+    # 5. AI call #2: generate the actual reply, save it, and return it
     memory_facts = get_context_facts(elder_id)
     system = build_system_prompt(target_language, memory_facts, closing=closing)
     reply = call_prose(model=CHAT_MODEL, system=system, messages=turn)
@@ -343,24 +254,7 @@ def send_message(elder_id: str, user_text: str, *, bounded: bool = False) -> Cha
     return ChatReply(text=reply, can_continue=can_continue)
 
 
-def add_reminiscence_message(elder_id: str, target_language: str) -> str | None:
-    """Insert a reminiscence-based conversation opener as a new AI message.
-
-    Args:
-        elder_id: the elder profile to generate an opener for.
-        target_language: language to write the opener in.
-
-    Returns:
-        str | None: the opener text that was inserted, or None if no
-            memories are stored yet (nothing is inserted in that case).
-    """
-    opener = generate_reminiscence_prompt(elder_id, target_language)
-    if opener is None:
-        return None
-    _insert_message(elder_id, "ai", opener)
-    return opener
-
-
+# Inserts today's first AI message (nudge/reminiscence/plain check-in), if none exists yet
 def maybe_send_daily_checkin(elder_id: str) -> None:
     """Insert today's companion opener if none has been sent yet today.
 
@@ -377,8 +271,11 @@ def maybe_send_daily_checkin(elder_id: str) -> None:
     target_language = profile.preferred_language if profile else "English"
     decision = decide_todays_opener(elder_id, target_language)
     if decision is None:
-        return
+        return  # elder already chatted today -- nothing to open with
     opener_text, line_type = decision
+    # Store a sentinel (not literal text) for the two fixed-string cases, so
+    # they re-render in whatever language the elder has now, not the
+    # language active when they were inserted.
     if line_type == "daily_checkin":
         content = _DAILY_CHECKIN_SENTINEL
     elif line_type == "family_nudge":
@@ -388,6 +285,7 @@ def maybe_send_daily_checkin(elder_id: str) -> None:
     _insert_message(elder_id, "ai", content)
 
 
+# Fetches today's already-inserted opener message, for display on Home/Check-In
 def get_todays_opener(elder_id: str, language: str) -> str | None:
     """Return today's opener message for display (e.g. on the Home screen).
 

@@ -13,13 +13,19 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
+from backend.config import get_settings
 from backend.db import get_connection
 
+_escalation_settings = get_settings().escalation
+
+# The 4 kinds of event that can trigger an escalation check
 TriggerType = Literal["chat_sentiment", "scam_detected", "missed_medication", "repeated_question"]
 
+# Alert types urgent enough to also fire the email stub, not just sit in the dashboard
 _HIGH_PRIORITY_ALERT_TYPES = {"distress", "scam_detected"}
 
 
+# The main entry point: routes an event to whichever rule handles that trigger type
 def check_and_alert(elder_id: str, trigger_type: TriggerType, context: dict[str, Any]) -> None:
     """Evaluate an escalation rule for a reported event, alerting if it applies.
 
@@ -38,6 +44,7 @@ def check_and_alert(elder_id: str, trigger_type: TriggerType, context: dict[str,
         _handle_repeated_question(elder_id, context)
 
 
+# Scam rule: always alerts immediately, no threshold -- one scam is one too many
 def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
     risk_level = context.get("risk_level", "medium")
     summary = context.get("summary", "")
@@ -49,6 +56,7 @@ def _handle_scam_detected(elder_id: str, context: dict[str, Any]) -> None:
     )
 
 
+# Medication rule: only alerts once a pattern (2+ prior misses) shows up, not on the first miss
 def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
     medication_id = context.get("medication_id")
     medication_name = context.get("medication_name", "a medication")
@@ -57,8 +65,8 @@ def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
         "select count(*) from medication_logs where medication_id = ? and status = 'missed'",
         (medication_id,),
     ).fetchone()[0]
-    if prior_missed_count < 2:
-        return
+    if prior_missed_count < _escalation_settings.missed_medication_pattern_threshold:
+        return  # not enough misses yet to count as a pattern
 
     # Without this check, every subsequent missed dose past the 2nd re-fires
     # a new alert for the same ongoing pattern instead of one. Once family
@@ -70,7 +78,7 @@ def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
         (elder_id, f"%{medication_name}%"),
     ).fetchone()
     if already_open is not None:
-        return
+        return  # already told family about this ongoing pattern -- don't repeat
 
     _write_alert(
         elder_id,
@@ -80,6 +88,7 @@ def _handle_missed_medication(elder_id: str, context: dict[str, Any]) -> None:
     )
 
 
+# Counts how many repeated-question messages happened this week vs. last week
 def get_repeated_question_weekly_counts(elder_id: str) -> tuple[int, int]:
     """Count repeated-question chat messages this week vs. the prior week.
 
@@ -114,11 +123,14 @@ def get_repeated_question_weekly_counts(elder_id: str) -> tuple[int, int]:
     return this_week_count, last_week_count
 
 
+# Repeated-question rule: only alerts if this week's count is both >= 2 and rising
 def _handle_repeated_question(elder_id: str, context: dict[str, Any]) -> None:
     this_week, last_week = get_repeated_question_weekly_counts(elder_id)
-    # Require at least 2 this week, not just any non-zero increase, so a
-    # single one-off repeated question doesn't trigger a false alarm.
-    if this_week >= 2 and this_week > last_week:
+    # Require at least the configured count this week, not just any non-zero
+    # increase, so a single one-off repeated question doesn't trigger a false
+    # alarm.
+    threshold = _escalation_settings.repeated_question_weekly_threshold
+    if this_week >= threshold and this_week > last_week:
         _write_alert(
             elder_id,
             "repeated_question_increase",
@@ -127,9 +139,10 @@ def _handle_repeated_question(elder_id: str, context: dict[str, Any]) -> None:
         )
 
 
+# Mood rule: distress alerts immediately, low mood only after a 3+ day streak
 def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:
     sentiment = context.get("sentiment")
-    if sentiment == "distress":
+    if sentiment == "distress":  # always urgent, alert right away
         _write_alert(
             elder_id,
             "distress",
@@ -137,7 +150,10 @@ def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:
             "responded with support and encouraged reaching out to family or "
             "a professional.",
         )
-    elif sentiment == "low" and _low_mood_streak_days(elder_id) >= 3:
+    elif (
+        sentiment == "low"
+        and _low_mood_streak_days(elder_id) >= _escalation_settings.low_mood_streak_days
+    ):  # sustained, not one-off
         _write_alert(
             elder_id,
             "sentiment_decline",
@@ -146,6 +162,7 @@ def _handle_chat_sentiment(elder_id: str, context: dict[str, Any]) -> None:
         )
 
 
+# Counts how many days in a row (up to today) the elder has had a low/distress message
 def _low_mood_streak_days(elder_id: str) -> int:
     """Count consecutive most-recent days (ending today) with a low/distress message."""
     rows = (
@@ -163,6 +180,7 @@ def _low_mood_streak_days(elder_id: str) -> int:
     )
     streak = 0
     expected = date.today()
+    # Walk backward from today one day at a time; stop at the first gap
     for row in rows:
         day = datetime.strptime(row["day"], "%Y-%m-%d").date()
         if day == expected:
@@ -173,6 +191,7 @@ def _low_mood_streak_days(elder_id: str) -> int:
     return streak
 
 
+# Writes one alert row, and fires the email stub if it's high-priority
 def _write_alert(elder_id: str, alert_type: str, message: str) -> None:
     conn = get_connection()
     conn.execute(
@@ -184,6 +203,7 @@ def _write_alert(elder_id: str, alert_type: str, message: str) -> None:
         _send_email_notification(elder_id, alert_type, message)
 
 
+# Stands in for a real email send (Resend/SendGrid) -- just logs for now
 def _send_email_notification(elder_id: str, alert_type: str, message: str) -> None:
     """Send (or, without an email provider configured, log) a family notification.
 

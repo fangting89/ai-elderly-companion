@@ -1,4 +1,7 @@
-"""Shared Anthropic client and a forced-tool-use helper for structured output."""
+"""Shared Anthropic client, plus the two call shapes every feature uses:
+call_structured() for forced-tool-use JSON output, call_prose() for plain
+text replies.
+"""
 
 import logging
 import os
@@ -9,14 +12,21 @@ from typing import Any
 import anthropic
 from dotenv import load_dotenv
 
-CHAT_MODEL = "claude-sonnet-5"
-TAG_MODEL = "claude-haiku-4-5-20251001"
+from backend.config import get_settings
+
+_claude_settings = get_settings().claude
+
+# Stronger model for anything the elder reads as prose; cheaper/faster
+# model for behind-the-scenes classification and tagging.
+CHAT_MODEL = _claude_settings.chat_model
+TAG_MODEL = _claude_settings.tag_model
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 
+# Writes one line to the log with how long the call took and how many tokens it used
 def _log_call(model: str, kind: str, started_at: float, response: anthropic.types.Message) -> None:
     """Log latency and token usage for one Claude call.
 
@@ -41,6 +51,7 @@ def _log_call(model: str, kind: str, started_at: float, response: anthropic.type
     )
 
 
+# Builds the Anthropic client once and reuses it (cached) for every call.
 @cache
 def get_client() -> anthropic.Anthropic:
     """Return a cached Anthropic client built from the ANTHROPIC_API_KEY env var.
@@ -51,6 +62,7 @@ def get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
+# Calls Claude and forces it to answer via a fixed tool/schema instead of free text
 def call_structured(
     *,
     model: str,
@@ -59,7 +71,7 @@ def call_structured(
     tool_name: str,
     tool_description: str,
     tool_schema: dict[str, Any],
-    max_tokens: int = 1024,
+    max_tokens: int = _claude_settings.max_tokens,
 ) -> dict[str, Any]:
     """Call Claude with a single forced tool, returning its structured input.
 
@@ -81,6 +93,8 @@ def call_structured(
     Raises:
         ValueError: if Claude's response contains no tool_use block.
     """
+    # Call Claude, forcing it to respond by calling our one tool (so the
+    # reply is guaranteed to be structured JSON, not free text).
     started_at = time.monotonic()
     response = get_client().messages.create(
         model=model,
@@ -92,20 +106,23 @@ def call_structured(
         tool_choice={"type": "tool", "name": tool_name},
     )
     _log_call(model, "structured", started_at, response)
+
+    # Pull the tool call's arguments out of the response and return them.
     for block in response.content:
         if block.type == "tool_use":
             return block.input
     raise ValueError("Claude did not return a tool_use block")
 
 
+# Calls Claude and returns a plain text reply, no forced structure
 def call_prose(
     *,
     model: str,
     system: str,
     messages: list[dict[str, Any]],
-    max_tokens: int = 1024,
+    max_tokens: int = _claude_settings.max_tokens,
 ) -> str:
-    """Call Claude for a free-form prose reply at default temperature.
+    """Call Claude for a free-form prose reply, at the configured temperature.
 
     Args:
         model: model id to call.
@@ -116,12 +133,16 @@ def call_prose(
     Returns:
         str: the reply text.
     """
+    # Call Claude for an ordinary text reply.
     started_at = time.monotonic()
     response = get_client().messages.create(
         model=model,
         max_tokens=max_tokens,
+        temperature=_claude_settings.prose_temperature,
         system=system,
         messages=messages,
     )
     _log_call(model, "prose", started_at, response)
+
+    # Join all text blocks into one string reply.
     return "".join(block.text for block in response.content if block.type == "text")
