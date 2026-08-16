@@ -14,6 +14,7 @@ pipeline actually works.
 [Medication Pipeline](#medication-pipeline) ·
 [Claude Client](#claude-client) ·
 [Prompt Inventory](#prompt-inventory) ·
+[Evaluation](#evaluation) ·
 [Configuration](#configuration) ·
 [Getting Started](#getting-started)
 
@@ -392,6 +393,58 @@ through each feature file individually.
 | `conf/prompts.yaml` | `explain_image_base` | `point_and_ask.py`'s `explain_image()` | Yes |
 | `conf/prompts.yaml` | `reminiscence_base` | `memory_bank.py`'s `generate_reminiscence_prompt()`, used by `companion_line.py`'s daily-opener decision | Yes |
 | `conf/prompts.yaml` | `weekly_summary_base` | `dashboard.py`'s `get_weekly_summary()`: nothing, `dashboard.py` isn't imported anywhere | No, unreachable |
+
+## Evaluation
+
+`eval/` checks each AI pipeline's real code against fixed test cases, one
+of two ways depending on whether the output has a single correct answer:
+
+```
+Fixed test case (expected answer written by a human, before running)
+        |
+        v
+Real pipeline code (the exact functions the live app uses)
+        |
+        v
+Does this output have one correct, checkable answer?
+   -- yes (a classification, a sentiment label)  --> exact match: got == expected
+   -- no (free-text reply, an explanation)        --> LLM-as-judge (see below)
+        |
+        v
+PASS/FAIL per case, tallied into a score
+```
+
+`run_point_and_ask_eval.py` is fully exact match: classification is a
+closed set (`scam` / `explain` / `unclear`), so every case can be checked
+directly. `run_chat_eval.py` is a mix: the tagging call's output
+(sentiment, repeated-question flag) is also a closed set and checked the
+same way, but the reply text is free-form, with no single correct
+phrasing, so it needs a judge instead.
+
+**LLM-as-judge**, used for the reply text: a second Claude call reads the
+reply and scores it, playing the role a human grader would.
+
+```
+Elder's message + the companion's reply
+        |
+        v
+_judge_reply(): call_structured(), temperature=0            [AI call]
+   forced checklist: no_unsafe_advice, warm_and_simple
+   (never a free-text opinion)
+        |
+        v
+Both criteria true?
+   -- yes --> PASS
+   -- no  --> FAIL
+```
+
+The judge call is deterministic (`temperature=0`) so the same reply
+judged twice gets the same verdict, and it is forced to answer a fixed
+checklist rather than write a free opinion, the same forced-tool-use
+pattern used for every other decision in this app. It is only reached for
+when exact match genuinely cannot apply; a closed set of possible answers
+is always checked directly instead, since that is cheaper and cannot be
+wrong in the way a second AI call can.
 
 Every prompt's fixed text lives in `conf/prompts.yaml`, one entry per
 prompt, editable without touching Python. The two fully static prompts
