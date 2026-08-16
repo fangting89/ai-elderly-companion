@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.chat import TAG_SCHEMA, _tag_system_prompt, build_system_prompt  # noqa: E402
+from backend.chat import TAG_SCHEMA, TAG_SYSTEM_PROMPT, build_system_prompt  # noqa: E402
 from backend.claude_client import CHAT_MODEL, TAG_MODEL, call_prose, call_structured  # noqa: E402
 
 CASES_PATH = Path(__file__).parent / "chat_eval_cases.json"
@@ -71,7 +71,7 @@ def main() -> None:
 
         tags = call_structured(
             model=TAG_MODEL,
-            system=_tag_system_prompt(),
+            system=TAG_SYSTEM_PROMPT,
             messages=messages,
             tool_name="tag_message",
             tool_description="Classify the sentiment and repetition of the latest message.",

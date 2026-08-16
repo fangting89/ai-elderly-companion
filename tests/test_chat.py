@@ -2,7 +2,7 @@
 isolated in-memory DB with the Claude calls mocked out -- no real API cost.
 
 backend.chat.send_message touches several other modules internally (get_profile,
-check_and_alert, get_context_facts, add_event), each of which has its own bound
+check_and_alert, get_context_facts), each of which has its own bound
 `get_connection` from `from backend.db import get_connection` -- so, matching the
 pattern in test_api.py, every one of them needs patching to the same shared
 in-memory connection, or a call would fall through to the real data/app.db.
@@ -24,7 +24,6 @@ _MODULES_USING_GET_CONNECTION = [
     "backend.chat",
     "backend.escalation",
     "backend.memory_bank",
-    "backend.calendar",
     "backend.companion_line",
 ]
 
@@ -57,10 +56,6 @@ def _mock_claude(monkeypatch, sentiment: str, reply_text: str = "A reply.") -> d
         return {
             "sentiment": sentiment,
             "repeated_question_flag": False,
-            "mentions_schedulable_event": False,
-            "event_title": "",
-            "event_date": "",
-            "event_time": "",
         }
 
     def fake_call_prose(*, model, system, messages):
